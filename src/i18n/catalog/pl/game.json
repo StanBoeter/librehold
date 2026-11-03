@@ -386,7 +386,8 @@
     },
     "hideScene": "Zwiń ilustrację",
     "showScene": "Pokaż ilustrację",
-    "units": "Jednostki"
+    "units": "Jednostki",
+    "movements": "Ruchy wojsk"
   },
   "player": {
     "bot": "bot",

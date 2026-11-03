@@ -98,6 +98,11 @@ export function unitsAway(state: GameState, villageId: string): Record<UnitId, n
   return out;
 }
 
+/** The village's active military movements: its attacks and support on their way out, and returns heading home. */
+export function militaryCommands(state: GameState, villageId: string): Command[] {
+  return state.commands.filter((c) => (c.type === 'attack' || c.type === 'support' || c.type === 'return') && commandHome(c) === villageId);
+}
+
 export type SendBlocker =
   | { kind: 'noUnits' }
   | { kind: 'notEnough'; unit: UnitId; have: number }

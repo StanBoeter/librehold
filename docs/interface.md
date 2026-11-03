@@ -36,7 +36,7 @@ checks the fonts.
 - A 2.5D scene in a panel headed "Name (N points)" (the "−" button collapses the illustration; same as Settings → Interface → Village illustration). Art: pixel art from `src/assets/pixel/village/` (layout in `layout.json`), model: `src/ui/scene/sceneModel.ts`, scene assembly and animations: `src/ui/scene/pixel/`.
 - The wall changes its look with the stage (1/3 and 2/3 of the maximum level): palisade (stages 1–2) → stone wall with towers (stage 3); the gate opens when a villager approaches. Buildings have three art stages by the same rule.
 - Green badges = building level (a click highlights the row in the table). A building that is not built has only a click area (a construction site while it is being built).
-- Right sidebar: Production (per hour), Units (troops in the village, "» recruit"), Current parameters. The building table shows only buildings whose requirements are met; when resources are short, the Cost column shows the time until they are gathered.
+- Right sidebar: Production (per hour), Units (troops in the village, "» recruit"), Movements (only shown while the village has troops on the move: its own attacks and support going out plus returns heading home, each with route and troop list and a live arrival countdown; `src/ui/views/MovementsPanel.tsx`), Current parameters. The building table shows only buildings whose requirements are met; when resources are short, the Cost column shows the time until they are gathered.
 
 ## Map — village menu and sizes
 

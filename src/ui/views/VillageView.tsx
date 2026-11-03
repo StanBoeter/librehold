@@ -19,6 +19,8 @@ import { BuildQueuePanel } from './BuildQueuePanel';
 import { BuildingScreen } from './BuildingScreen';
 import { BuildingsTable } from './BuildingsTable';
 import { UnitsPanel } from './UnitsPanel';
+import { MovementsPanel } from './MovementsPanel';
+import { militaryCommands } from '../../engine/commands';
 import { IncomingList } from '../components/IncomingList';
 import { BuildPlanPanel } from './BuildPlanPanel';
 import { humanPlayer, humanVillageIds } from '../../engine/players';
@@ -27,7 +29,7 @@ import { humanPlayer, humanVillageIds } from '../../engine/players';
 const RESOURCE_BUILDING: Record<Resource, BuildingId> = { wood: 'wood', clay: 'clay', iron: 'iron' };
 
 /** Panel with a header and a collapse button. */
-function SidePanel({ title, children, defaultOpen = true, right }: { title: string; children: React.ReactNode; defaultOpen?: boolean; right?: React.ReactNode }) {
+export function SidePanel({ title, children, defaultOpen = true, right }: { title: string; children: React.ReactNode; defaultOpen?: boolean; right?: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   useT();
   return (
@@ -109,6 +111,13 @@ function ParamsPanel() {
   );
 }
 
+/** The "Movements" card: only shown while the village has troops on the move (or returning). */
+function MovementsCard() {
+  const hasMoves = useGameStore((s) => militaryCommands(s.game!, selectActiveVillage(s).id).length > 0);
+  if (!hasMoves) return null;
+  return <SidePanel title={t('village.movements')}><MovementsPanel /></SidePanel>;
+}
+
 function ScenePanel() {
   const name = useGameStore((s) => villageLabelOf(s.game!, selectActiveVillage(s)));
   useT();
@@ -154,6 +163,7 @@ export function VillageView() {
       <aside className="min-w-0 flex flex-col gap-3 lg:sticky lg:top-2">
         <ProductionPanel />
         <SidePanel title={t('village.units')}><UnitsPanel onRecruit={() => open('barracks')} /></SidePanel>
+        <MovementsCard />
         <ParamsPanel />
       </aside>
     </div>

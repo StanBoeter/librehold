@@ -360,7 +360,8 @@
     },
     "hideScene": "Collapse the illustration",
     "showScene": "Show the illustration",
-    "units": "Units"
+    "units": "Units",
+    "movements": "Movements"
   },
   "player": {
     "bot": "bot",
