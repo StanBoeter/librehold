@@ -22859,146 +22859,146 @@
     {
       "elapsedMs": 0,
       "loyalty": 25,
-      "value": 25,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 25
     },
     {
       "elapsedMs": 0,
       "loyalty": 25,
-      "value": 25,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 25
     },
     {
       "elapsedMs": 3600000,
       "loyalty": 25,
-      "value": 26,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 26
     },
     {
       "elapsedMs": 3600000,
       "loyalty": 25,
-      "value": 33,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 33
     },
     {
       "elapsedMs": 36000000,
       "loyalty": 25,
-      "value": 35,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 35
     },
     {
       "elapsedMs": 36000000,
       "loyalty": 25,
-      "value": 100,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 100
     },
     {
       "elapsedMs": 360000000,
       "loyalty": 25,
-      "value": 100,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 100
     },
     {
       "elapsedMs": 360000000,
       "loyalty": 25,
-      "value": 100,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 100
     },
     {
       "elapsedMs": 0,
       "loyalty": 60,
-      "value": 60,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 60
     },
     {
       "elapsedMs": 0,
       "loyalty": 60,
-      "value": 60,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 60
     },
     {
       "elapsedMs": 3600000,
       "loyalty": 60,
-      "value": 61,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 61
     },
     {
       "elapsedMs": 3600000,
       "loyalty": 60,
-      "value": 68,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 68
     },
     {
       "elapsedMs": 36000000,
       "loyalty": 60,
-      "value": 70,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 70
     },
     {
       "elapsedMs": 36000000,
       "loyalty": 60,
-      "value": 100,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 100
     },
     {
       "elapsedMs": 360000000,
       "loyalty": 60,
-      "value": 100,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 100
     },
     {
       "elapsedMs": 360000000,
       "loyalty": 60,
-      "value": 100,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 100
     },
     {
       "elapsedMs": 0,
       "loyalty": 99,
-      "value": 99,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 99
     },
     {
       "elapsedMs": 0,
       "loyalty": 99,
-      "value": 99,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 99
     },
     {
       "elapsedMs": 3600000,
       "loyalty": 99,
-      "value": 100,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 100
     },
     {
       "elapsedMs": 3600000,
       "loyalty": 99,
-      "value": 100,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 100
     },
     {
       "elapsedMs": 36000000,
       "loyalty": 99,
-      "value": 100,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 100
     },
     {
       "elapsedMs": 36000000,
       "loyalty": 99,
-      "value": 100,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 100
     },
     {
       "elapsedMs": 360000000,
       "loyalty": 99,
-      "value": 100,
-      "worldSpeed": 1
+      "unitSpeed": 1,
+      "value": 100
     },
     {
       "elapsedMs": 360000000,
       "loyalty": 99,
-      "value": 100,
-      "worldSpeed": 8
+      "unitSpeed": 8,
+      "value": 100
     }
   ],
   "nobleLimit": [

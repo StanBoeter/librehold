@@ -724,6 +724,7 @@
     "nextNoble": "The next hetman needs <b>{coins}</b> coins (villages: {villages} + hetmans you own) plus 40,000 / 50,000 / 50,000 resources and 100 population. Limit in this village: {nobles}/{limit} (Academy level).",
     "noble": "Hetman",
     "rulesNoCoins": "No coins in this world: a hetman costs only resources and population. Each surviving hetman in a winning attack lowers the loyalty of a barbarian village by 20–35 and of a village with an owner by {min}–{max}. At loyalty ≤ 0 the village becomes yours (loyalty 25, buildings lose 1–3 levels, research resets). The hetman is used up in the conquest and can attack at most 70 fields away.",
+    "loyaltyPerHour": "A village regains {loyalty} loyalty per hour.",
     "rules": "Each surviving hetman in a winning attack lowers the target's loyalty by 20–35. At loyalty ≤ 0 the village becomes yours (loyalty 25, buildings lose 1–3 levels, research resets). The hetman is used up in the conquest and can attack at most 70 fields away. A coin always costs {wood}/{clay}/{iron}."
   },
   "quests": {

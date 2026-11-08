@@ -66,11 +66,13 @@ type researchCostCase struct {
 	game.Resources
 }
 
+// loyaltyCase is one loyalty-regeneration sample: the loyalty, how long it has had to come back, and the world's
+// unit speed — loyalty regenerates on unit speed, since it is the clock a nobleman races.
 type loyaltyCase struct {
-	Loyalty    float64 `json:"loyalty"`
-	ElapsedMs  int64   `json:"elapsedMs"`
-	WorldSpeed float64 `json:"worldSpeed"`
-	Value      float64 `json:"value"`
+	Loyalty   float64 `json:"loyalty"`
+	ElapsedMs int64   `json:"elapsedMs"`
+	UnitSpeed float64 `json:"unitSpeed"`
+	Value     float64 `json:"value"`
 }
 
 var resourceNames = []struct {
@@ -186,9 +188,9 @@ func RulesJSON() ([]byte, error) {
 	var loyalty []loyaltyCase
 	for _, l := range []float64{25, 60, 99} {
 		for _, elapsed := range []int64{0, game.MsPerHour, 10 * game.MsPerHour, 100 * game.MsPerHour} {
-			for _, ws := range []float64{1, 8} {
+			for _, us := range []float64{1, 8} {
 				v := &game.Village{Loyalty: l}
-				loyalty = append(loyalty, loyaltyCase{l, elapsed, ws, game.LoyaltyAt(v, elapsed, ws)})
+				loyalty = append(loyalty, loyaltyCase{l, elapsed, us, game.LoyaltyAt(v, elapsed, us)})
 			}
 		}
 	}

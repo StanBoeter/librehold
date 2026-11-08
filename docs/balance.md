@@ -32,7 +32,7 @@ Every value lives in `server/internal/game`; after changing one, run `npm run ge
 | Points | `round(base_pts · 1.2^(L−1))` (total building value) | `BuildingBalance.PointsFactor`, `BasePoints` |
 | Build time | `base · 1.18 · 1.2^max(−13, L−1−14/(L−1)) · 1.05^−townHall / worldSpeed`, min 1 s | `BuildingBalance`, `BaseTimeSec` |
 | Combat | luck ±25%, wall `1.037^L` + `20·L`, losses `(weaker/stronger)^1.5`, wall hp `0.27·L^1.5+0.7`, building hp `0.39·L^1.5+0.8` | `CombatBalance` in `data_units.go` |
-| Conquest | loyalty +1/h, drop 20–35, coin 28k/30k/25k, coins per hetman = villages + hetmans | `ConquestBalance` in `data_conquest.go` |
+| Conquest | loyalty +1/h × *unit speed*, drop 20–35, coin 28k/30k/25k, coins per hetman = villages + hetmans | `ConquestBalance` in `data_conquest.go` |
 | Units | stats table, recruitment time `base · 0.9666^(level−1)` | `data_units.go` |
 | Merchants | one per market level to 11, then `(L−10)² + 10`: level 19 gives 91, level 25 gives 235 | `TradeBalance.MerchantCurveAt` in `data_trade.go`, `MerchantsForLevel` in `market.go` |
 | Trade offers | expiry 24 game h, 6 *distinct* public deals per village at a time (copies free), delivery limit 1–24 merchant h (0 unlimited) | `TradeBalance` in `data_trade.go` |
@@ -44,7 +44,8 @@ Every value lives in `server/internal/game`; after changing one, run `npm run ge
 The pace is **deliberately fast** — this is a clicker, not a game that lasts half a year. Time is sped up, not the
 rules of units, buildings and combat.
 
-- New worlds start at **8× speed**: production ×8, building and recruitment ÷8, loyalty recovers 8× faster — **marching and merchants are not sped up** (army pace is set separately by *unit speed*). Settings let you go down to 1×.
+- New worlds start at **8× speed**: production ×8, building and recruitment ÷8 — **marching and merchants are not sped up** (army pace is set separately by *unit speed*). Settings let you go down to 1×.
+- **Loyalty recovers on *unit speed*, not world speed**, because it is the clock a hetman races: regen and march have to stay on the same clock or a wave loses on the road more than it takes off the village. On unit speed the break-even distance is about 24 fields for one hetman in every world; on world speed it collapsed to ~3 fields whenever a world was fast to build in but slow to march in (8× speed with 1× movement).
 - Side multipliers (*Your multipliers* / *Bot multipliers*): resources, recruitment, building — separately for you and for bots (0.25–10), barbarians always ×1. Research ignores the multiplier.
 - The starting village has **10 spearmen** — the first raid on an empty barbarian village goes out in the first minutes.
 - **Barbarians are passive**: small villages without a wall or troops; damage and looted resources do not come back on their own.

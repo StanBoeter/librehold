@@ -265,7 +265,7 @@ function SidePanel({ sel, onClose }: { sel: { x: number; y: number }; onClose: (
     return JSON.stringify({
       intel: v.intel ?? null,
       lastFarmedAgo: v.lastFarmedAt !== undefined ? nowMs - v.lastFarmedAt : null,
-      loyalty: v.intel ? loyaltyAt({ ...v, loyalty: v.intel.loyalty, loyaltyUpdatedAt: v.intel.at }, nowMs, s.game!.config.worldSpeed) : null,
+      loyalty: v.intel ? loyaltyAt({ ...v, loyalty: v.intel.loyalty, loyaltyUpdatedAt: v.intel.at }, nowMs, s.game!.config.unitSpeed) : null,
       owned: v.ownerId !== null,
       config: s.game!.config,
     });

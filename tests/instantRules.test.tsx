@@ -95,6 +95,23 @@ describe('instant worlds without coins', () => {
     expect(screen.getByRole('button', { name: /mint/i })).toBeTruthy();
   });
 
+  it('the academy states the loyalty a village regains per hour, for this world', () => {
+    // The rate is loyaltyPerHour x unit speed, so it is not a constant: a world with x8 movement recovers 8 points an
+    // hour and one with x1 recovers one. The players must be able to read the number their conquest is racing.
+    const slow = game(false);
+    slow.config.unitSpeed = 1;
+    mount(slow);
+    const a = render(<AcademyScreen />);
+    expect(a.container.textContent).toContain('A village regains 1 loyalty per hour.');
+    cleanup();
+
+    const fast = game(false);
+    fast.config.unitSpeed = 8;
+    mount(fast);
+    const b = render(<AcademyScreen />);
+    expect(b.container.textContent).toContain('A village regains 8 loyalty per hour.');
+  });
+
   it('the header shows no coin badge', () => {
     mount(game(true));
     const { container } = render(<Header />);

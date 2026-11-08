@@ -1,8 +1,8 @@
-import { checkMint, type MintBlocker } from '../../engine/conquest';
+import { checkMint, loyaltyPerHour, type MintBlocker } from '../../engine/conquest';
 import { coinsNeededFor, nobleCountOf, nobleLimit } from '../../engine/units';
 import { selectActiveVillage, useGameStore } from '../../state/gameStore';
 import { CostRow } from '../components/CostRow';
-import { formatNumber } from '../format';
+import { formatDecimal, formatNumber } from '../format';
 import { RecruitScreen } from './RecruitScreen';
 import { humanVillageIds, humanCoins, humanNoblesTrained } from '../../engine/players';
 import { HUMAN_ID } from '../../engine/types';
@@ -17,6 +17,8 @@ export function AcademyScreen() {
   const villageId = useGameStore((s) => selectActiveVillage(s).id);
   const mint = useGameStore((s) => s.mint);
   const config = useGameStore((s) => s.game!.config);
+  // Loyalty is the clock a hetman races, so it regenerates on unit speed: the rate differs per world.
+  const loyalty = loyaltyPerHour(config.unitSpeed);
   useT();
   const json = useGameStore((s) => {
     const g = s.game!;
@@ -59,7 +61,8 @@ export function AcademyScreen() {
       <p className="text-[11px] text-muted">
         {config.noCoins
           ? t('academy.rulesNoCoins', { min: config.ownedNobleDropMin ?? 20, max: config.ownedNobleDropMax ?? 35 })
-          : t('academy.rules', { wood: formatNumber(28000), clay: formatNumber(30000), iron: formatNumber(25000) })}
+          : t('academy.rules', { wood: formatNumber(28000), clay: formatNumber(30000), iron: formatNumber(25000) })}{' '}
+        {t('academy.loyaltyPerHour', { loyalty: formatDecimal(loyalty) })}
       </p>
     </div>
   );

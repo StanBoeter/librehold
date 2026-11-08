@@ -275,7 +275,7 @@ func (p *instantPlayer) takeOwned(v *game.Village) (bool, error) {
 		if in := p.w.Intel(p.id, t.ID); in != nil && in.Intel != nil && p.w.Now()-in.Intel.At <= scoutAgeMs {
 			c.def, _ = p.knownDefense(t.ID, false)
 			c.known = true
-			loyalty := game.LoyaltyAt(&game.Village{Loyalty: in.Intel.Loyalty, LoyaltyUpdatedAt: in.Intel.At}, p.w.Now(), cfg.WorldSpeed)
+			loyalty := game.LoyaltyAt(&game.Village{Loyalty: in.Intel.Loyalty, LoyaltyUpdatedAt: in.Intel.At}, p.w.Now(), cfg.UnitSpeed)
 			c.need = game.NoblesNeededFor(cfg, true, loyalty)
 		}
 		cands = append(cands, c)

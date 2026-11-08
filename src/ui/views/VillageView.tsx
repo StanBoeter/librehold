@@ -65,7 +65,7 @@ function ParamsPanel() {
     return JSON.stringify({
       worldSpeed: g.config.worldSpeed, unitSpeed: g.config.unitSpeed,
       pop: villagePopulationUsed(v, g), popMax: villageFarmCapacity(v), storage: villageStorageCapacity(v),
-      loyalty: Math.round(loyaltyAt(v, g.now, g.config.worldSpeed)), bonus: v.bonus?.kind ?? null,
+      loyalty: Math.round(loyaltyAt(v, g.now, g.config.unitSpeed)), bonus: v.bonus?.kind ?? null,
       protectedMs: Math.max(0, humanPlayer(g).protectedUntil - g.now), villages: humanVillageIds(g).length, coords: [v.x, v.y] as [number, number],
       day: Math.floor(g.now / MS_PER_DAY) + 1, lossMode: g.config.battleLosses,
     });

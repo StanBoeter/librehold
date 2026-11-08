@@ -168,7 +168,7 @@ export function villageInfo(state: GameState, x: number, y: number, fromId: stri
     ownerPoints: t.ownerId ? state.players[t.ownerId]?.points ?? null : null, x, y, points: t.points, bonus: t.bonus, materialized: t.materialized, distance: d,
     intel: seen ? {
       at: seen.at, units: { ...seen.units }, wall: seen.wall,
-      loyalty: Math.round(loyaltyAt({ ...v, loyalty: seen.loyalty, loyaltyUpdatedAt: seen.at } as Village, state.now, state.config.worldSpeed)),
+      loyalty: Math.round(loyaltyAt({ ...v, loyalty: seen.loyalty, loyaltyUpdatedAt: seen.at } as Village, state.now, state.config.unitSpeed)),
       lastHaul: seen.lastHaul ? seen.lastHaul.wood + seen.lastHaul.clay + seen.lastHaul.iron : null,
       lastHaulCapacity: seen.lastHaulCapacity ?? null,
       lastLosses: seen.lastLosses ?? null,

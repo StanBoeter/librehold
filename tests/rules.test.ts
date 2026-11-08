@@ -4,7 +4,7 @@ import rules from './fixtures/rules.json';
 import balance from '../src/data/balance.json';
 import { buildingCost, farmCapacity, hideCapacity, storageCapacity } from '../src/engine/buildings';
 import { travelTimeMs } from '../src/engine/commands';
-import { loyaltyAt, noblesNeededFor } from '../src/engine/conquest';
+import { loyaltyAt, loyaltyPerHour, noblesNeededFor } from '../src/engine/conquest';
 import { checkBuild } from '../src/engine/queues';
 import { villageProductionPerHour } from '../src/engine/resources';
 import { researchBonus, researchCost } from '../src/engine/research';
@@ -83,7 +83,8 @@ describe('display helpers give the server\'s answers', () => {
     for (const c of rules.loyalty) {
       v.loyalty = c.loyalty;
       v.loyaltyUpdatedAt = 0;
-      expect(loyaltyAt(v, c.elapsedMs, c.worldSpeed), JSON.stringify(c)).toBe(c.value);
+      // Loyalty regenerates on unit speed, not world speed: it is the clock a nobleman races.
+      expect(loyaltyAt(v, c.elapsedMs, c.unitSpeed), JSON.stringify(c)).toBe(c.value);
     }
     for (const c of rules.noblesNeeded) expect(noblesNeededFor(g.config, false, c.loyalty)).toBe(c.n);
     for (const c of rules.nobleLimit) {
@@ -91,6 +92,16 @@ describe('display helpers give the server\'s answers', () => {
       expect(nobleLimit(g.config, v)).toBe(c.n);
     }
     for (const c of rules.researchBonus) expect(researchBonus(c.level)).toBeCloseTo(c.bonus, 12);
+  });
+
+  it('loyalty regeneration is the balance rate times unit speed, so it differs per world', () => {
+    // The Academy shows this number, and it is not a constant: a world with faster movement also recovers loyalty
+    // faster, because loyalty is the clock a hetman races.
+    const perHour = balance.CONQUEST_BALANCE.loyaltyPerHour;
+    expect(loyaltyPerHour(1)).toBeCloseTo(perHour, 12);
+    expect(loyaltyPerHour(8)).toBeCloseTo(perHour * 8, 12);
+    // A world with x8 movement regains 8 points per real hour; on x1 it regains one.
+    expect(loyaltyPerHour(8)).toBeGreaterThan(loyaltyPerHour(1));
   });
 });
 

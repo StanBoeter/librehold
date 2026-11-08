@@ -65,10 +65,11 @@ func academySteps(v *Village) []BuildingID {
 }
 
 // nobleReach: how far nobles may go so waves beat loyalty regeneration — a wave of n nobles drops 27.5·n on
-// average, and loyalty comes back while they return and march again (faster on faster worlds).
+// average, and loyalty comes back while they return and march again. Loyalty regenerates on unit speed (see
+// msPerLoyaltyPoint), so the regen a round trip has to out-pace cancels down to a constant and reach no longer
+// depends on how the world's two speeds compare.
 func nobleReach(w World, nobles int) float64 {
-	cfg := w.Config()
-	regenPerField := (ConquestBalance.LoyaltyPerHour * cfg.WorldSpeed * 2 * UnitDefs[UNoble].Speed) / (60 * cfg.UnitSpeed)
+	regenPerField := (ConquestBalance.LoyaltyPerHour * 2 * UnitDefs[UNoble].Speed) / 60
 	return math.Min(12, (0.7*float64(nobles)*ConquestBalance.NobleDropAvg)/regenPerField)
 }
 

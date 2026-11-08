@@ -6,5 +6,5 @@ func Touch(w World, v *Village) {
 	now := w.Now()
 	Accrue(v, now, w.Config())
 	SettleRecruitQueues(v, now)
-	SettleLoyalty(v, now, w.Config().WorldSpeed)
+	SettleLoyalty(v, now, w.Config().UnitSpeed)
 }

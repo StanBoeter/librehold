@@ -16,17 +16,25 @@ func CoinsForNextNoble(w World, id PlayerID, ownedNobles int) int {
 	return villages*ConquestBalance.CoinsPerVillage + ownedNobles*ConquestBalance.CoinsPerNoble
 }
 
-// msPerLoyaltyPoint: a village regains +1 loyalty per hour, sped up by world speed.
-func msPerLoyaltyPoint(worldSpeed float64) float64 {
-	return float64(MsPerHour) / (ConquestBalance.LoyaltyPerHour * worldSpeed)
+// msPerLoyaltyPoint: a village regains +1 loyalty per hour, sped up by unit speed.
+//
+// Unit speed, not world speed, because loyalty is the clock a nobleman races: it has to come back at the pace the
+// army around it moves, or a wave loses more on the march than it takes off the village. World speed divides build
+// and research times, so a fast world's nobles are *cheap*; unit speed is what makes them *quick*. Tying regen to
+// world speed made conquest depend on the ratio of the two: at 8x speed with 1x movement a hetman crossing two
+// fields came home to +16 loyalty, so no wave could ever beat it and a village more than three fields away was
+// untakeable. On unit speed the break-even distance is the same in every world — about 24 fields for one hetman —
+// and instant worlds, which set both speeds to 100, are unchanged.
+func msPerLoyaltyPoint(unitSpeed float64) float64 {
+	return float64(MsPerHour) / (ConquestBalance.LoyaltyPerHour * unitSpeed)
 }
 
 // SettleLoyalty regenerates loyalty lazily: whole points since the last settlement, at most 100.
-func SettleLoyalty(v *Village, now int64, worldSpeed float64) {
+func SettleLoyalty(v *Village, now int64, unitSpeed float64) {
 	if now <= v.LoyaltyUpdatedAt {
 		return
 	}
-	step := msPerLoyaltyPoint(worldSpeed)
+	step := msPerLoyaltyPoint(unitSpeed)
 	points := math.Floor(float64(now-v.LoyaltyUpdatedAt) / step)
 	if points <= 0 {
 		return
@@ -40,8 +48,8 @@ func SettleLoyalty(v *Village, now int64, worldSpeed float64) {
 }
 
 // LoyaltyAt is the loyalty at now without mutation (for views).
-func LoyaltyAt(v *Village, now int64, worldSpeed float64) float64 {
-	points := math.Max(0, math.Floor(float64(now-v.LoyaltyUpdatedAt)/msPerLoyaltyPoint(worldSpeed)))
+func LoyaltyAt(v *Village, now int64, unitSpeed float64) float64 {
+	points := math.Max(0, math.Floor(float64(now-v.LoyaltyUpdatedAt)/msPerLoyaltyPoint(unitSpeed)))
 	return math.Min(ConquestBalance.MaxLoyalty, v.Loyalty+points)
 }
 

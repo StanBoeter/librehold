@@ -173,11 +173,27 @@ func TestLoyalty(t *testing.T) {
 		}
 	})
 
-	t.Run("loyalty recovers faster on a faster world", func(t *testing.T) {
+	t.Run("loyalty recovers faster on a faster-moving world", func(t *testing.T) {
+		// Unit speed, not world speed: loyalty is the clock the nobleman races, so it has to keep up with the army
+		// beside it. A world can be fast to build in and slow to march in, and conquest has to work in both.
 		_, v := gametest.NewTestWorld(5)
 		v.Loyalty, v.LoyaltyUpdatedAt = 50, 0
 		if game.LoyaltyAt(v, game.MsPerHour, 1) != 51 || game.LoyaltyAt(v, game.MsPerHour, 8) != 58 {
-			t.Fatal("speed")
+			t.Fatal("unit speed")
+		}
+	})
+
+	t.Run("a slow-marching world does not out-regenerate a noble", func(t *testing.T) {
+		// The bug this guards: regen used to track world speed, so an 8x world with 1x movement regenerated 8
+		// loyalty an hour while a hetman still crawled at 35 minutes a field. Two fields took over an hour, so a
+		// wave came home to +16 and no village beyond about three fields could ever be taken.
+		const unitSpeed = 1.0
+		regen := game.ConquestBalance.LoyaltyPerHour * unitSpeed
+		const nobleMinPerField = 35.0
+		roundTripHours := 2 * 2 * nobleMinPerField / 60 // two fields out and back
+		if regained := regen * roundTripHours; regained >= game.ConquestBalance.NobleDropAvg {
+			t.Fatalf("a two-field round trip hands back %.0f loyalty, a noble takes %.0f; conquest is impossible",
+				regained, game.ConquestBalance.NobleDropAvg)
 		}
 	})
 

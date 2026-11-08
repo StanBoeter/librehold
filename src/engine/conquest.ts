@@ -1,14 +1,14 @@
 import { CONQUEST_BALANCE } from '../data/conquest.data';
 import { MS_PER_HOUR, type GameState, type PlayerId, type Village, type WorldConfig } from './types';
 
-/** World time per loyalty point (+1/h, sped up by world speed). */
-function msPerLoyaltyPoint(worldSpeed: number): number {
-  return MS_PER_HOUR / (CONQUEST_BALANCE.loyaltyPerHour * worldSpeed);
+/** World time per loyalty point (+1/h, sped up by unit speed — the clock a nobleman races). */
+function msPerLoyaltyPoint(unitSpeed: number): number {
+  return MS_PER_HOUR / (CONQUEST_BALANCE.loyaltyPerHour * unitSpeed);
 }
 
 /** Loyalty at `now` without mutation (for the UI). */
-export function loyaltyAt(v: Village, now: number, worldSpeed: number): number {
-  const points = Math.max(0, Math.floor((now - v.loyaltyUpdatedAt) / msPerLoyaltyPoint(worldSpeed)));
+export function loyaltyAt(v: Village, now: number, unitSpeed: number): number {
+  const points = Math.max(0, Math.floor((now - v.loyaltyUpdatedAt) / msPerLoyaltyPoint(unitSpeed)));
   return Math.min(CONQUEST_BALANCE.maxLoyalty, v.loyalty + points);
 }
 
@@ -46,4 +46,9 @@ export function noblesNeededFor(config: WorldConfig, owned: boolean, loyalty: nu
   const lo = owned && config.ownedNobleDropMax ? config.ownedNobleDropMin ?? 0 : CONQUEST_BALANCE.nobleDropMin;
   const hi = owned && config.ownedNobleDropMax ? config.ownedNobleDropMax : CONQUEST_BALANCE.nobleDropMax;
   return Math.max(1, Math.ceil(loyalty / ((lo + hi) / 2)));
+}
+
+/** Loyalty a village regains per hour in this world: the balance rate times the world's unit speed. */
+export function loyaltyPerHour(unitSpeed: number): number {
+  return CONQUEST_BALANCE.loyaltyPerHour * unitSpeed;
 }

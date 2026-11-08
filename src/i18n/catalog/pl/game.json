@@ -756,6 +756,7 @@
     "nextNoble": "Następny hetman wymaga <b>{coins}</b> monet (wiosek: {villages} + posiadani hetmani) oraz 40 000 / 50 000 / 50 000 surowców i 100 populacji. Limit w tej wiosce: {nobles}/{limit} (poziom Akademii).",
     "noble": "Hetman",
     "rulesNoCoins": "W tym świecie nie ma monet: hetman kosztuje tylko surowce i populację. Każdy ocalały hetman w wygranym ataku obniża lojalność wioski barbarzyńców o 20–35, a wioski z właścicielem o {min}–{max}. Przy lojalności ≤ 0 wioska staje się Twoja (lojalność 25, budynki tracą 1–3 poziomy, badania resetują się). Hetman zużywa się przy podboju i może atakować najdalej 70 pól.",
+    "loyaltyPerHour": "Lojalność wioski rośnie o {loyalty} na godzinę.",
     "rules": "Każdy ocalały hetman w wygranym ataku obniża lojalność celu o 20–35. Przy lojalności ≤ 0 wioska staje się Twoja (lojalność 25, budynki tracą 1–3 poziomy, badania resetują się). Hetman zużywa się przy podboju i może atakować najdalej 70 pól. Moneta kosztuje zawsze {wood}/{clay}/{iron}."
   },
   "quests": {
