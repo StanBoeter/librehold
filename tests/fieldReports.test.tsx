@@ -118,6 +118,24 @@ describe('field battle reports', () => {
     expect(document.querySelectorAll('table.table-units thead th')).toHaveLength((UNIT_IDS.length + 1) * 2);
   });
 
+  it('dims the zeroes, so the numbers that matter stand out', async () => {
+    await open(fieldReport({}));
+    const tables = [...document.querySelectorAll('table.table-units')];
+    expect(tables).toHaveLength(2);
+    for (const table of tables) {
+      const [quantity, losses] = [...table.querySelectorAll('tbody tr')].map((tr) => [...tr.querySelectorAll('td')].slice(1));
+      // Every figure still reads its number; only the zeroes are dimmed.
+      for (const cell of [...quantity!, ...losses!]) expect(cell.textContent).toMatch(/^\d[\d,]*$/);
+      expect(quantity!.filter((c) => c.classList.contains('zero-figure'))).toHaveLength(UNIT_IDS.length - 1);
+      expect(losses!.filter((c) => c.classList.contains('zero-figure'))).toHaveLength(UNIT_IDS.length - 1);
+    }
+    // The attacker's ten axes and the defender's fifty light cavalry stay in full ink.
+    const axe = UNIT_IDS.indexOf('axe');
+    const attackerQuantity = [...tables[0]!.querySelectorAll('tbody tr')[0]!.querySelectorAll('td')].slice(1);
+    expect(attackerQuantity[axe]!.textContent).toBe('10');
+    expect(attackerQuantity[axe]!.classList.contains('zero-figure')).toBe(false);
+  });
+
   it('offers no narrowing when the battle used every unit type', async () => {
     const all = Object.fromEntries(UNIT_IDS.map((u) => [u, 1])) as Report['attacker']['units'];
     await open(fieldReport({ attacker: { units: all, losses: {} }, defender: { units: all, losses: {} } }));

@@ -233,6 +233,13 @@
   .table-units tbody tr:nth-child(even) td {
     background: rgba(255, 255, 255, 0.14);
   }
+  /* A figure that is a zero: lighter than the ink and a step smaller, so a unit a side did not bring reads as an
+     absence and the eye finds the numbers that matter. Not `text-muted` — that brown reads as ordinary text, and the
+     point is that it looks unused. */
+  .table-units .zero-figure {
+    color: #867f73;
+    font-size: 11px;
+  }
 
   /* Lettered plank — map rulers and other narrow wooden strips. */
   .wood-strip {
