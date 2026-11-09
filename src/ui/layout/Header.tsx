@@ -8,7 +8,6 @@ import { ResourceBar } from './ResourceBar';
 import { WorldClock } from './WorldClock';
 import { humanVillageIds, humanCoins } from '../../engine/players';
 import { useT } from '../../i18n/i18n';
-import { LanguageSwitch } from '../../i18n/LanguageSwitch';
 import { villageLabelOf } from '../villageName';
 import { InstantBar } from '../instant/InstantBar';
 
@@ -68,7 +67,6 @@ export function Header() {
           </span>
         )}
         {coins > 0 && <span className="font-body text-[12px]" title={t('header.coins')}><PixelIcon name="coin" size={16} /> {coins}</span>}
-        <LanguageSwitch className="ml-auto font-body text-[11px] gap-0.5" buttonClassName="btn !px-1 !py-0 opacity-70" onChange={(locale) => useGameStore.getState().setLocale(locale)} />
       </div>
       <div className="px-2 sm:px-3 py-1.5 sm:py-2 flex flex-wrap items-center gap-x-3 sm:gap-x-6 gap-y-1">
         <ResourceBar />

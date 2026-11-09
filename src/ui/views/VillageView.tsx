@@ -54,7 +54,6 @@ function ProductionPanel() {
   });
   const { out, levels } = JSON.parse(json) as { out: Record<Resource, number>; levels: Record<Resource, number> };
   const setFocus = useUiStore((s) => s.setFocusBuilding);
-  const lowest = RESOURCES.reduce((a, b) => (levels[b] < levels[a] ? b : a));
   useT();
   return (
     <SidePanel title={t('village.production')}>
@@ -69,7 +68,6 @@ function ProductionPanel() {
           ))}
         </tbody>
       </table>
-      <button className="px-2 pb-1.5 pt-1 font-bold text-ink hover:underline text-[12px]" onClick={() => setFocus(RESOURCE_BUILDING[lowest])}>{t('village.boostProduction')}</button>
     </SidePanel>
   );
 }
@@ -153,7 +151,7 @@ export function VillageView() {
       </div>
       <aside className="min-w-0 flex flex-col gap-3 lg:sticky lg:top-2">
         <ProductionPanel />
-        <SidePanel title={t('village.units')}><UnitsPanel onRecruit={() => open('barracks')} /></SidePanel>
+        <SidePanel title={t('village.units')}><UnitsPanel /></SidePanel>
         <ParamsPanel />
       </aside>
     </div>
