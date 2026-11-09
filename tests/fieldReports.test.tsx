@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { setLocale } from '../src/i18n/i18n';
 import { reportVillageOf } from '../src/engine/reports';
-import type { GameState, Report, Village } from '../src/engine/types';
+import { UNIT_IDS, type GameState, type Report, type Village } from '../src/engine/types';
 import { useGameStore } from '../src/state/gameStore';
 import { useUiStore } from '../src/state/uiStore';
 import { ReportsView } from '../src/ui/views/ReportsView';
@@ -73,6 +73,86 @@ describe('field battle reports', () => {
       scout: { units: { axe: 120 } } as Report['scout'] }));
     expect(screen.getByText(/Scouted army/)).toBeTruthy();
     expect(document.body.textContent).toContain('120');
+  });
+
+  it('shows the army in the Tribal Wars layout: icons across the top, Quantity and Losses rows', async () => {
+    await open(fieldReport({}));
+    // One table per side: a header row of unit icons, then a Quantity row and a Losses row.
+    const tables = document.querySelectorAll('table.table-units');
+    expect(tables).toHaveLength(2);
+    for (const table of tables) {
+      // The blank label column comes first, then one column per unit — all twelve by default, so the
+      // attacker's and defender's tables line up column for column.
+      expect(table.querySelectorAll('thead th')).toHaveLength(UNIT_IDS.length + 1);
+      expect(table.querySelectorAll('tbody tr')).toHaveLength(2);
+    }
+    // The attacker brought axes only, and the defender light cavalry only, yet every unit still has a column.
+    expect(screen.getAllByRole('img', { name: 'Spearman' })).toHaveLength(2);
+    expect(screen.getAllByRole('img', { name: 'Hetman' })).toHaveLength(2);
+    // The row labels appear once per side.
+    expect(screen.getAllByText('Quantity:')).toHaveLength(2);
+    expect(screen.getAllByText('Losses')).toHaveLength(2);
+    expect(screen.getAllByText('Origin:').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('narrows to the units the battle used, so a phone need not scroll sideways', async () => {
+    await open(fieldReport({}));
+    const box = screen.getByRole('checkbox', { name: 'Only units in this battle' });
+    expect((box as HTMLInputElement).checked).toBe(false);
+    // The attacker used axes, the defender light cavalry: two columns plus the label column.
+    fireEvent.click(box);
+
+    const tables = document.querySelectorAll('table.table-units');
+    expect(tables).toHaveLength(2);
+    for (const table of tables) {
+      expect(table.querySelectorAll('thead th')).toHaveLength(3);
+      // Both sides show the same two units, so they still line up column for column.
+      expect(screen.getAllByRole('img', { name: 'Axeman' })).toHaveLength(2);
+      expect(screen.getAllByRole('img', { name: 'Light cavalryman' })).toHaveLength(2);
+      expect(table.classList.contains('table-units-compact')).toBe(true);
+    }
+    // A unit nobody brought is gone entirely.
+    expect(screen.queryByRole('img', { name: 'Spearman' })).toBeNull();
+    // Unchecking brings all twelve back.
+    fireEvent.click(box);
+    expect(document.querySelectorAll('table.table-units thead th')).toHaveLength((UNIT_IDS.length + 1) * 2);
+  });
+
+  it('offers no narrowing when the battle used every unit type', async () => {
+    const all = Object.fromEntries(UNIT_IDS.map((u) => [u, 1])) as Report['attacker']['units'];
+    await open(fieldReport({ attacker: { units: all, losses: {} }, defender: { units: all, losses: {} } }));
+    expect(screen.queryByRole('checkbox', { name: 'Only units in this battle' })).toBeNull();
+  });
+
+  it('scrolls both sides together, so the same unit stays under the same column', async () => {
+    await open(fieldReport({}));
+    const sides = [...document.querySelectorAll('table.table-units')].map((t) => t.parentElement as HTMLDivElement);
+    const [attacker, defender] = sides;
+    expect(attacker).toBeDefined();
+    expect(defender).toBeDefined();
+    // Scroll the attacker's table sideways, as a thumb on a phone would.
+    attacker!.scrollLeft = 120;
+    fireEvent.scroll(attacker!);
+    // The defender's table follows, so both sides still show the same unit types.
+    expect(defender!.scrollLeft).toBe(120);
+    // And the other way round.
+    defender!.scrollLeft = 40;
+    fireEvent.scroll(defender!);
+    expect(attacker!.scrollLeft).toBe(40);
+  });
+
+  it('a wiped-out side is not told what killed it', async () => {
+    // The defender lost every man, so his report carries no attacker numbers.
+    await open(fieldReport({ attackerHidden: true, defender: { units: { lightCav: 10 }, losses: { lightCav: 10 } } }));
+    expect(screen.getByText(/nobody came back to count the enemy/)).toBeTruthy();
+    // The enemy's numbers must not leak anywhere in the report body.
+    expect(document.body.textContent).not.toContain('50');
+  });
+
+  it('the surviving side still sees the whole battle', async () => {
+    await open(fieldReport({}));
+    expect(screen.queryByText(/nobody came back to count the enemy/)).toBeNull();
+    expect(document.body.textContent).toContain('50');
   });
 
   it('a missed interception says the army was gone', async () => {

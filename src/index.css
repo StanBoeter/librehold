@@ -81,6 +81,10 @@
       inset 0 1px 4px rgba(96, 48, 0, 0.18),
       0 2px 6px rgba(20, 10, 0, 0.4);
   }
+  /* A lost battle: the same plank, tinted with the loss colour so the outcome reads before the words do. */
+  .panel-header-loss {
+    background-color: var(--color-bad);
+  }
   .panel-header {
     @apply border-b-2 border-border-dark px-3 py-1.5 font-display font-semibold text-[14px];
     color: var(--ink-light);
@@ -182,6 +186,52 @@
   }
   :is(.table-game, .ranking-table) tbody tr:hover td {
     background: rgba(255, 241, 205, 0.45);
+  }
+
+  /* Battle report: one bordered card, the way Tribal Wars lays it out — red section headers inside a single frame
+     rather than a stack of floating panels. */
+  .report-card {
+    @apply border-2 border-wood-border rounded-[3px] overflow-hidden;
+    background-color: var(--color-panel);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 252, 240, 0.35),
+      0 2px 6px rgba(20, 10, 0, 0.4);
+  }
+  /* A red section header: "The attacker won", "Attacker:", "Important Information:". */
+  .report-bar {
+    @apply px-2 py-1 font-display font-semibold text-[13px];
+    color: #fff4dd;
+    background-color: #8c2f1d;
+    background-image: linear-gradient(rgba(255, 235, 200, 0.16), rgba(0, 0, 0, 0.28));
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  }
+  .report-bar-ok { background-color: #3f6f22; }
+
+  /* The army table: fixed unit columns so the attacker's and defender's tables line up column for column.
+     `table-layout: fixed` keeps every unit column the same width — a wide figure like 4,000 widens the column by
+     nothing, so the rows stay aligned instead of drifting apart. */
+  .table-units {
+    @apply w-full border-collapse table-fixed text-[12px];
+    /* The floor: a 64px label plus twelve 39px columns, each still holding a five-digit figure like 99,999 (36.8px
+       of tabular digits). Below this the columns would start clipping numbers, so the table scrolls instead. */
+    min-width: 532px;
+  }
+  /* Narrowed to the units a battle used, the table has fewer columns and should shrink with them instead of keeping
+     the twelve-column floor. Four columns still refresh the card on a phone. */
+  .table-units-compact { min-width: 250px; }
+  .table-units :is(th, td):first-child { width: 64px; }
+  .table-units th {
+    @apply border border-wood-border/40 px-0 py-0.5 text-center align-middle;
+    background: rgba(122, 79, 32, 0.14);
+  }
+  .table-units td {
+    @apply border border-wood-border/30 px-0.5 py-0.5;
+  }
+  .table-units td:first-child {
+    @apply pl-2 font-semibold whitespace-nowrap;
+  }
+  .table-units tbody tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.14);
   }
 
   /* Lettered plank — map rulers and other narrow wooden strips. */

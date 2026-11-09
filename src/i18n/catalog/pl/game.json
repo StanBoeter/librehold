@@ -1076,7 +1076,15 @@
       "travel": "dotrą za około {time}",
       "youGive": "Oddajesz",
       "youGet": "Otrzymujesz"
-    }
+    },
+    "quantity": "Stan:",
+    "origin": "Skąd:",
+    "destination": "Dokąd:",
+    "armyUnknown": "Twoje wojsko zostało zniszczone i nikt nie wrócił, by policzyć wroga. Jego siły są nieznane.",
+    "battleAt": "Bitwa pod {at}",
+    "buildings": "Budynki:",
+    "fromTo": "z {from} na {to}",
+    "onlyUsedUnits": "Tylko jednostki z bitwy"
   },
   "farm": {
     "status": {

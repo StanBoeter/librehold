@@ -338,3 +338,133 @@ func TestFieldBattleDeterministic(t *testing.T) {
 		t.Fatalf("same world, same orders, different battles:\n%s\n%s", a, b)
 	}
 }
+
+// A wiped-out side has nobody left to count the enemy: it must not be told what killed it, wherever the fighting
+// happened. The survivor reports the battle in full.
+func TestFieldBattleFogOfWar(t *testing.T) {
+	t.Run("an interceptor wiped out does not learn the marching army", func(t *testing.T) {
+		f := newFieldWorld(t)
+		// A handful of spearmen on the road meet 100 axes. In a field report the interceptor is the attacker, and his
+		// report is the one that must go blind.
+		f.a.Units[game.USpear] = 10
+		meet(t, f, game.UnitCounts{game.USpear: 10}, false)
+		mine, theirs := fieldReports(f.w, "h1"), fieldReports(f.w, "h2")
+		if len(mine) != 1 || len(theirs) != 1 {
+			t.Fatalf("a field battle must reach both players: h1 %d, h2 %d", len(mine), len(theirs))
+		}
+		if mine[0].Attacker.Losses.Total() < mine[0].Attacker.Units.Total() {
+			t.Fatalf("the interceptor was supposed to be wiped out: %d of %d",
+				mine[0].Attacker.Losses.Total(), mine[0].Attacker.Units.Total())
+		}
+		if !mine[0].DefenderHidden {
+			t.Fatal("the wiped-out interceptor still sees the marching army")
+		}
+		if mine[0].AttackerHidden {
+			t.Fatal("the interceptor must still see his own troops")
+		}
+		if theirs[0].AttackerHidden || theirs[0].DefenderHidden {
+			t.Fatal("the surviving army's report must stay complete")
+		}
+	})
+
+	t.Run("a marching army destroyed does not learn the interceptor", func(t *testing.T) {
+		f := newFieldWorld(t)
+		// 50 light cavalry wipe the marching axes out entirely.
+		meet(t, f, game.UnitCounts{game.ULightCav: 50}, false)
+		mine, theirs := fieldReports(f.w, "h1"), fieldReports(f.w, "h2")
+		if len(mine) != 1 || len(theirs) != 1 {
+			t.Fatalf("a field battle must reach both players: h1 %d, h2 %d", len(mine), len(theirs))
+		}
+		if theirs[0].Defender.Losses.Total() < theirs[0].Defender.Units.Total() {
+			t.Fatalf("the marching army was supposed to be destroyed: %d of %d",
+				theirs[0].Defender.Losses.Total(), theirs[0].Defender.Units.Total())
+		}
+		if !theirs[0].AttackerHidden {
+			t.Fatal("the destroyed army's owner still sees what killed it")
+		}
+		if mine[0].AttackerHidden || mine[0].DefenderHidden {
+			t.Fatal("the surviving interceptor's report must stay complete")
+		}
+	})
+}
+
+// The same rule holds against a village wall: an attack that never came home is not a report, so the attacker must
+// not read the defender's army off it. The defender, who held the walls, sees everything.
+func TestVillageBattleFogOfWar(t *testing.T) {
+	newVillageWorld := func(attackerAxe, defenderSpear int) (*gametest.MemWorld, *game.Command) {
+		t.Helper()
+		w, home := gametest.NewTestWorld(77)
+		w.Player("h1").ProtectedUntil = 0
+		gametest.NewHumanPlayer(w, "h2")
+		den := gametest.AddStartVillage(w, "h2", home.X+2, home.Y)
+		den.Units = game.Units{}
+		den.Buildings[game.BWall] = 5
+		den.Units[game.USpear] = defenderSpear
+		home.Units[game.UAxe] = attackerAxe
+		c, err := game.SendCommand(w, "h1", home.ID, den.X, den.Y, game.UnitCounts{game.UAxe: attackerAxe}, "attack", game.SendOpts{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := gametest.Advance(w, c.ArrivesAt); err != nil {
+			t.Fatal(err)
+		}
+		return w, c
+	}
+	attackReport := func(w *gametest.MemWorld, id game.PlayerID) *game.Report {
+		for _, r := range w.ReportsOf(id) {
+			if r.Type == "attack" {
+				return r
+			}
+		}
+		return nil
+	}
+
+	t.Run("an attacker wiped out does not learn the defender's army", func(t *testing.T) {
+		w, _ := newVillageWorld(5, 300)
+		mine, theirs := attackReport(w, "h1"), attackReport(w, "h2")
+		if mine == nil || theirs == nil {
+			t.Fatal("both sides must get the attack report")
+		}
+		if mine.Attacker.Losses.Total() < mine.Attacker.Units.Total() {
+			t.Fatalf("the attack was supposed to be wiped out: %d of %d",
+				mine.Attacker.Losses.Total(), mine.Attacker.Units.Total())
+		}
+		if !mine.DefenderHidden {
+			t.Fatal("the wiped-out attacker still sees the defender's army")
+		}
+	})
+
+	t.Run("a defender wiped out still sees the attack that broke on his wall", func(t *testing.T) {
+		// The defender lost his garrison, but the wall was his and he stood behind it: he watched the attack break,
+		// so he reads the whole battle even with nobody left.
+		w, _ := newVillageWorld(3000, 1)
+		mine, theirs := attackReport(w, "h1"), attackReport(w, "h2")
+		if mine == nil || theirs == nil {
+			t.Fatal("both sides must get the attack report")
+		}
+		if theirs.Defender.Losses.Total() < theirs.Defender.Units.Total() {
+			t.Fatalf("the garrison was supposed to be wiped out: %d of %d",
+				theirs.Defender.Losses.Total(), theirs.Defender.Units.Total())
+		}
+		if theirs.AttackerHidden || theirs.DefenderHidden {
+			t.Fatal("the defender stood behind the wall and must read the whole attack")
+		}
+		if theirs.Attacker.Units.Total() == 0 {
+			t.Fatal("the defender must see what was thrown at him")
+		}
+	})
+
+	t.Run("a successful attack sees the defender's army", func(t *testing.T) {
+		w, _ := newVillageWorld(2000, 1)
+		mine := attackReport(w, "h1")
+		if mine == nil {
+			t.Fatal("no attack report")
+		}
+		if mine.AttackerHidden || mine.DefenderHidden {
+			t.Fatal("an attacker who survived must read the whole battle")
+		}
+		if mine.Defender.Units.Total() == 0 {
+			t.Fatal("an attacker who survived must see what he killed")
+		}
+	})
+}

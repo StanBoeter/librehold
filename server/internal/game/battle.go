@@ -127,6 +127,63 @@ func sendReports(w World, to []PlayerID, r Report) {
 	}
 }
 
+// wipedOut says whether one side of a battle came home with nobody at all.
+func wipedOut(side ReportSide) bool {
+	total := side.Units.Total()
+	return total > 0 && side.Losses.Total() >= total
+}
+
+// blindedFor is the report one reader gets, which depends on whether *that reader* was wiped out.
+//
+// Nobody comes home to count the enemy: whoever died cannot tell his lord what killed him. So a side that lost every
+// man reads only what its own lord already knew — the troops he sent and that they were all lost — with the enemy's
+// numbers withheld. The surviving side saw the fight and reads it in full.
+//
+// A village is the exception, for one side: the wall it was fought over is still standing, and the defender who lost
+// his army there is standing on it. He watched the attack come in and break, so he reads the whole battle even when
+// nothing of his survived. What he cannot learn that way is an attack that never reached the wall at all — and that
+// is a field battle, not this one.
+//
+// The decision reads the losses, not who was nominally attacking, because both roles can be wiped out: an interceptor
+// is the attacker in his own report, and a noble train dying on the wall leaves the attacker just as blind as one
+// destroyed on the road.
+func blindedFor(r Report, reader PlayerID) Report {
+	switch r.Type {
+	case "attack", "conquest", "field", "fieldScout":
+	default:
+		// Scouting works by another rule (seeing is the point of a scout), and support and market reports carry no
+		// battle.
+		return r
+	}
+	readDefender := r.Target.OwnerID == reader
+	// The defender of a village sees the attack even if his garrison died: he was behind the wall it broke on.
+	if readDefender && (r.Type == "attack" || r.Type == "conquest") {
+		return r
+	}
+	if wipedOut(r.Attacker) && wipedOut(r.Defender) {
+		// Both armies gone with no survivor to describe the fight: there is no witness at all.
+		r.AttackerHidden, r.DefenderHidden = true, true
+		return r
+	}
+	if wipedOut(r.Defender) && readDefender {
+		r.AttackerHidden = true
+	}
+	if wipedOut(r.Attacker) && r.Origin.OwnerID == reader {
+		r.DefenderHidden = true
+	}
+	return r
+}
+
+// sendBattleReports delivers a battle to every side, each seeing only what it could know.
+func sendBattleReports(w World, to []PlayerID, r Report) {
+	for _, id := range to {
+		copy := blindedFor(r, id)
+		// Only the sender learns the auto-farm sent the troops.
+		copy.AutoFarm = r.AutoFarm && id == r.Origin.OwnerID
+		w.AddReport(id, &copy)
+	}
+}
+
 // ResolveAttackArrival: the full battle, reports, loot, return, loyalty and conquest.
 func ResolveAttackArrival(w World, c *Command, target *Village) error {
 	origin := w.Village(c.OriginID)
@@ -361,7 +418,7 @@ func ResolveAttackArrival(w World, c *Command, target *Village) error {
 		if c.Units[UNoble] > 0 {
 			r.LoyaltyBefore, r.LoyaltyAfter = ptrTo(loyaltyBefore), ptrTo(loyaltyAfter)
 		}
-		sendReports(w, recipients, r)
+		sendBattleReports(w, recipients, r)
 	}
 
 	if D != "" && D != A && result.Outcome == "defenderWon" {
