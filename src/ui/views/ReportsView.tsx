@@ -67,12 +67,18 @@ function BattleSidePanel({ title, side, placeLabel, village, bot, hidden, scroll
             <tbody>
               <tr>
                 <td>{t('reports.quantity')}</td>
-                {units.map((u) => <td key={u} className="text-center tabular-nums">{formatNumber(side.units[u] ?? 0)}</td>)}
+                {/* A unit the side did not bring reads "0" in a lighter, smaller figure, so a real number stands out
+                    among the zeroes at a glance. */}
+                {units.map((u) => (
+                  <td key={u} className={`text-center tabular-nums${(side.units[u] ?? 0) > 0 ? '' : ' zero-figure'}`}>
+                    {formatNumber(side.units[u] ?? 0)}
+                  </td>
+                ))}
               </tr>
               <tr>
                 <td>{t('reports.losses')}</td>
                 {units.map((u) => (
-                  <td key={u} className={`text-center tabular-nums ${(side.losses[u] ?? 0) > 0 ? 'text-bad font-semibold' : ''}`}>
+                  <td key={u} className={`text-center tabular-nums${(side.losses[u] ?? 0) > 0 ? ' text-bad font-semibold' : ' zero-figure'}`}>
                     {formatNumber(side.losses[u] ?? 0)}
                   </td>
                 ))}
