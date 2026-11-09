@@ -26,6 +26,14 @@ export interface UiPrefs {
   movementsCollapsed: boolean;
 }
 
+/**
+ * A narrow window is a phone, where a report's twelve unit columns do not fit: the reader starts with only the
+ * units the battle used, so nothing has to be scrolled sideways.
+ */
+function narrowScreen(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(max-width: 600px)').matches;
+}
+
 const PREFS_KEY = 'lh-ui-prefs';
 
 function defaultPrefs(): UiPrefs {
@@ -85,6 +93,12 @@ interface UiStore {
   /** Reports view: leave out the auto-farm's reports; unlike the village filter it holds while the game is open. */
   reportsHideAutoFarm: boolean;
   setReportsHideAutoFarm: (hide: boolean) => void;
+  /**
+   * Battle reports: show only the unit types the battle used, instead of all twelve. Set from the report itself and
+   * remembered, so a phone can read a report without scrolling sideways.
+   */
+  reportsCompactUnits: boolean;
+  setReportsCompactUnits: (compact: boolean) => void;
   /** Report to open on entering the Reports view (one-off). */
   reportToOpen: string | null;
   openReport: (reportId: string) => void;
@@ -137,6 +151,8 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   openReportsFor: (reportsVillageFilter) => set({ reportsVillageFilter, view: 'reports' }),
   reportsHideAutoFarm: false,
   setReportsHideAutoFarm: (reportsHideAutoFarm) => set({ reportsHideAutoFarm }),
+  reportsCompactUnits: narrowScreen(),
+  setReportsCompactUnits: (reportsCompactUnits) => set({ reportsCompactUnits }),
   reportToOpen: null,
   openReport: (reportToOpen) => set({ reportToOpen, view: 'reports' }),
   consumeReportToOpen: () => {

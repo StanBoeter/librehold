@@ -1049,7 +1049,8 @@
     "armyUnknown": "Your army was wiped out, and nobody came back to count the enemy. Their troops are unknown.",
     "battleAt": "Battle at {at}",
     "buildings": "Buildings:",
-    "fromTo": "from {from} to {to}"
+    "fromTo": "from {from} to {to}",
+    "onlyUsedUnits": "Only units in this battle"
   },
   "farm": {
     "status": {

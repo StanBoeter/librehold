@@ -207,15 +207,18 @@
   }
   .report-bar-ok { background-color: #3f6f22; }
 
-  /* The army table: twelve fixed unit columns so two reports line up column for column. `table-layout: fixed` keeps
-     every unit column the same width on the attacker's and the defender's table — a wide figure like 4,000 widens the
-     column by nothing, so the rows stay aligned instead of drifting apart. */
+  /* The army table: fixed unit columns so the attacker's and defender's tables line up column for column.
+     `table-layout: fixed` keeps every unit column the same width — a wide figure like 4,000 widens the column by
+     nothing, so the rows stay aligned instead of drifting apart. */
   .table-units {
     @apply w-full border-collapse table-fixed text-[12px];
     /* The floor: a 64px label plus twelve 39px columns, each still holding a five-digit figure like 99,999 (36.8px
        of tabular digits). Below this the columns would start clipping numbers, so the table scrolls instead. */
     min-width: 532px;
   }
+  /* Narrowed to the units a battle used, the table has fewer columns and should shrink with them instead of keeping
+     the twelve-column floor. Four columns still refresh the card on a phone. */
+  .table-units-compact { min-width: 250px; }
   .table-units :is(th, td):first-child { width: 64px; }
   .table-units th {
     @apply border border-wood-border/40 px-0 py-0.5 text-center align-middle;

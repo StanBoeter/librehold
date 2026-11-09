@@ -1083,7 +1083,8 @@
     "armyUnknown": "Twoje wojsko zostało zniszczone i nikt nie wrócił, by policzyć wroga. Jego siły są nieznane.",
     "battleAt": "Bitwa pod {at}",
     "buildings": "Budynki:",
-    "fromTo": "z {from} na {to}"
+    "fromTo": "z {from} na {to}",
+    "onlyUsedUnits": "Tylko jednostki z bitwy"
   },
   "farm": {
     "status": {

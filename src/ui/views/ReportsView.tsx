@@ -24,11 +24,12 @@ type Filter = 'all' | ReportType | 'unread';
  * naming the village it came from (or went to), then a table whose first column holds the row labels and whose
  * remaining columns are the unit icons.
  *
- * Every unit type gets a column in every report, in the same order, so two reports read side by side and a row never
- * shifts under the eye. A side the reader could not have seen (`hidden`) shows no army: a wiped-out force has nobody
- * left to describe what beat it.
+ * Both sides are handed the same `units` list, so their tables line up column for column. By default that is all
+ * twelve unit types in a fixed order, so a row never shifts under the eye between reports; the reader can narrow it
+ * to the units this battle actually used, which fits a phone screen without scrolling sideways. A side the reader
+ * could not have seen (`hidden`) shows no army: a wiped-out force has nobody left to describe what beat it.
  */
-function BattleSidePanel({ title, side, placeLabel, village, bot, hidden }: {
+function BattleSidePanel({ title, side, placeLabel, village, bot, hidden, scroller, units }: {
   title: string;
   side: Report['attacker'];
   /** "Origin:" for the side that marched, "Destination:" for the side that was hit. */
@@ -36,6 +37,10 @@ function BattleSidePanel({ title, side, placeLabel, village, bot, hidden }: {
   village: string;
   bot?: boolean;
   hidden?: boolean;
+  /** Told where the sideways scroller is, so the two sides' tables can be scrolled as one. */
+  scroller?: (el: HTMLDivElement | null) => void;
+  /** The unit columns to draw, in order. Both sides are given the same list so the tables stay aligned. */
+  units: readonly UnitId[];
 }) {
   const t = useT();
   return (
@@ -49,12 +54,12 @@ function BattleSidePanel({ title, side, placeLabel, village, bot, hidden }: {
       {hidden ? (
         <p className="px-2 pb-2 italic text-muted">{t('reports.armyUnknown')}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="table-units">
+        <div className="overflow-x-auto" ref={scroller}>
+          <table className={`table-units ${units.length < UNIT_IDS.length ? 'table-units-compact' : ''}`}>
             <thead>
               <tr>
                 <th />
-                {UNIT_IDS.map((u) => (
+                {units.map((u) => (
                   <th key={u} className="text-center p-0" title={unitName(u)}><UnitIcon unit={u} /></th>
                 ))}
               </tr>
@@ -62,11 +67,11 @@ function BattleSidePanel({ title, side, placeLabel, village, bot, hidden }: {
             <tbody>
               <tr>
                 <td>{t('reports.quantity')}</td>
-                {UNIT_IDS.map((u) => <td key={u} className="text-center tabular-nums">{formatNumber(side.units[u] ?? 0)}</td>)}
+                {units.map((u) => <td key={u} className="text-center tabular-nums">{formatNumber(side.units[u] ?? 0)}</td>)}
               </tr>
               <tr>
                 <td>{t('reports.losses')}</td>
-                {UNIT_IDS.map((u) => (
+                {units.map((u) => (
                   <td key={u} className={`text-center tabular-nums ${(side.losses[u] ?? 0) > 0 ? 'text-bad font-semibold' : ''}`}>
                     {formatNumber(side.losses[u] ?? 0)}
                   </td>
@@ -168,6 +173,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const json = useGameStore((s) => JSON.stringify(s.game!.reports.find((r) => r.id === id) ?? null));
   const r = JSON.parse(json) as Report | null;
   const openRally = useUiStore((s) => s.openRally);
+  const compactUnits = useUiStore((s) => s.reportsCompactUnits);
+  const setCompactUnits = useUiStore((s) => s.setReportsCompactUnits);
   const sendTemplate = useGameStore((s) => s.sendTemplate);
   const deleteReport = useGameStore((s) => s.deleteReport);
   const villages = useGameStore((s) => s.game!.villages);
@@ -180,6 +187,18 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
     return c && c.fieldHit && humanVillageIds(g).includes(c.originId) && canCancelCommand(g, c) ? c.id : null;
   });
   const t = useT();
+  // The two sides' tables are wider than a phone, so each scrolls. Scrolling one scrolls the other, so the same unit
+  // type stays under the same finger: the column you are looking at is the column you are looking at on both sides.
+  const [scrollers] = useState(() => new Set<HTMLDivElement>());
+  const keepScrollInStep = (el: HTMLDivElement) => {
+    if (el.dataset.scrollWired) return;
+    el.dataset.scrollWired = '1';
+    el.addEventListener('scroll', () => {
+      for (const other of scrollers) {
+        if (other !== el && other.scrollLeft !== el.scrollLeft) other.scrollLeft = el.scrollLeft;
+      }
+    });
+  };
   if (!r) return <p className="text-muted italic">{t('reports.missing')}</p>;
   if (r.type === 'market' && r.market) return <MarketReportDetail r={r} market={r.market} onBack={onBack} />;
   const isField = r.type === 'field' || r.type === 'fieldScout';
@@ -189,6 +208,14 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const canRetry = !isField && tx !== undefined && ty !== undefined && !(target && isHumanVillage(target));
   const haulSum = r.haul ? r.haul.wood + r.haul.clay + r.haul.iron : 0;
   const won = r.outcome === 'attackerWon';
+
+  // The units this battle actually used, from both sides' troops and losses. A side the reader may not see still
+  // claims its columns: its army is hidden from him, not missing from the fight.
+  const usedUnits = UNIT_IDS.filter((u) => [
+    r.attacker.units[u], r.attacker.losses[u], r.defender.units[u], r.defender.losses[u],
+  ].some((n) => (n ?? 0) > 0));
+  const canNarrow = usedUnits.length > 0 && usedUnits.length < UNIT_IDS.length;
+  const columns = compactUnits && canNarrow ? usedUnits : UNIT_IDS;
 
   return (
     <div className="space-y-3 text-[12px]">
@@ -201,6 +228,12 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
         {canRetry && <button className="btn" onClick={() => openRally({ x: tx!, y: ty!, units: r.attacker.units, mode: 'attack' })}>{t('reports.retry')}</button>}
         {canRetry && <button className="btn" onClick={() => sendTemplate('A', tx!, ty!)}>{t('reports.sendA')}</button>}
         {turnBackId && <button className="btn" onClick={() => { void cancel(turnBackId); }}>{t('armyCard.turnBack')}</button>}
+        {canNarrow && (
+          <label className="inline-flex items-center gap-1">
+            <input type="checkbox" checked={compactUnits} onChange={(e) => setCompactUnits(e.target.checked)} />
+            {t('reports.onlyUsedUnits')}
+          </label>
+        )}
         <button className="btn ml-auto" onClick={() => { deleteReport(r.id); onBack(); }}>{t('reports.delete')}</button>
       </div>
       {/* One card, the way Tribal Wars does it: red section bars inside a single frame. */}
@@ -220,6 +253,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
           village={reportVillageLabel(r.origin)}
           bot={r.origin.ownerIsBot}
           hidden={r.attackerHidden}
+          scroller={(el) => { if (el) { scrollers.add(el); keepScrollInStep(el); } }}
+          units={columns}
         />
         {!r.field?.missed && (
           <BattleSidePanel
@@ -229,6 +264,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             village={reportVillageLabel(r.target)}
             bot={r.target.ownerIsBot}
             hidden={r.defenderHidden}
+            scroller={(el) => { if (el) { scrollers.add(el); keepScrollInStep(el); } }}
+            units={columns}
           />
         )}
         {/* What the attack actually did: loot, loyalty, and the damage done inside the village. Each is a full-width
