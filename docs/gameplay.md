@@ -111,6 +111,11 @@ and marches in progress finish at their own times.
   over at the edge of the world (without coins).
 - The admin can pause a world: world time stands still and players see the banner "The world is paused by the
   administrator".
+- **Battle reports only say what a side could know.** A force that lost every man has nobody left to ride home and
+  count the enemy, so the side that was wiped out — on a village wall or on the road — reads only what its own lord
+  already knew: the troops sent and that they were all lost, with the enemy's numbers withheld. The survivor reads the
+  whole battle, since he walked the field. Both roles can be blinded: an interception wiped out by the army it met is
+  the "attacker" of its own report, and an attack that never returned leaves the defender just as unseen.
 
 ## Player trading
 

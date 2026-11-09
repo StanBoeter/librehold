@@ -75,6 +75,31 @@ describe('field battle reports', () => {
     expect(document.body.textContent).toContain('120');
   });
 
+  it('shows the army in the Tribal Wars layout: icons across the top, Quantity and Losses rows', async () => {
+    await open(fieldReport({}));
+    // One column per unit the side actually brought, not all twelve.
+    // One row-per-fact table per side, so these labels appear once per side.
+    expect(screen.getAllByText('Quantity:')).toHaveLength(2);
+    expect(screen.getAllByText('Losses')).toHaveLength(2);
+    expect(screen.getAllByText('Origin:').length).toBeGreaterThanOrEqual(1);
+    // The attacker brought axes only, so there is no spear column.
+    expect(document.body.textContent).not.toMatch(/Spearman/);
+  });
+
+  it('a wiped-out side is not told what killed it', async () => {
+    // The defender lost every man, so his report carries no attacker numbers.
+    await open(fieldReport({ attackerHidden: true, defender: { units: { lightCav: 10 }, losses: { lightCav: 10 } } }));
+    expect(screen.getByText(/nobody came back to count the enemy/)).toBeTruthy();
+    // The enemy's numbers must not leak anywhere in the report body.
+    expect(document.body.textContent).not.toContain('50');
+  });
+
+  it('the surviving side still sees the whole battle', async () => {
+    await open(fieldReport({}));
+    expect(screen.queryByText(/nobody came back to count the enemy/)).toBeNull();
+    expect(document.body.textContent).toContain('50');
+  });
+
   it('a missed interception says the army was gone', async () => {
     await open(fieldReport({ outcome: 'defenderWon', target: { id: '', name: '', x: 0, y: 0 }, targetId: '', defender: { units: {}, losses: {} },
       field: { x: 12.4, y: 7.6, targetType: 'attack', targetCommandId: 'gone', missed: true } }));
