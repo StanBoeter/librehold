@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { setLocale } from '../src/i18n/i18n';
 import { reportVillageOf } from '../src/engine/reports';
-import type { GameState, Report, Village } from '../src/engine/types';
+import { UNIT_IDS, type GameState, type Report, type Village } from '../src/engine/types';
 import { useGameStore } from '../src/state/gameStore';
 import { useUiStore } from '../src/state/uiStore';
 import { ReportsView } from '../src/ui/views/ReportsView';
@@ -77,13 +77,22 @@ describe('field battle reports', () => {
 
   it('shows the army in the Tribal Wars layout: icons across the top, Quantity and Losses rows', async () => {
     await open(fieldReport({}));
-    // One column per unit the side actually brought, not all twelve.
-    // One row-per-fact table per side, so these labels appear once per side.
+    // One table per side: a header row of unit icons, then a Quantity row and a Losses row.
+    const tables = document.querySelectorAll('table.table-units');
+    expect(tables).toHaveLength(2);
+    for (const table of tables) {
+      // The blank label column comes first, then one column per unit — all twelve, always, so the
+      // attacker's and defender's tables line up column for column.
+      expect(table.querySelectorAll('thead th')).toHaveLength(UNIT_IDS.length + 1);
+      expect(table.querySelectorAll('tbody tr')).toHaveLength(2);
+    }
+    // The attacker brought axes only, and the defender light cavalry only, yet every unit still has a column.
+    expect(screen.getAllByRole('img', { name: 'Spearman' })).toHaveLength(2);
+    expect(screen.getAllByRole('img', { name: 'Hetman' })).toHaveLength(2);
+    // The row labels appear once per side.
     expect(screen.getAllByText('Quantity:')).toHaveLength(2);
     expect(screen.getAllByText('Losses')).toHaveLength(2);
     expect(screen.getAllByText('Origin:').length).toBeGreaterThanOrEqual(1);
-    // The attacker brought axes only, so there is no spear column.
-    expect(document.body.textContent).not.toMatch(/Spearman/);
   });
 
   it('a wiped-out side is not told what killed it', async () => {
