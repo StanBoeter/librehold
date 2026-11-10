@@ -100,6 +100,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const simulate = (rep: Report) => openSimulator({
     attacker: rep.attacker.units,
     defender: rep.defender.units,
+    attackerResearch: rep.attacker.research,
+    defenderResearch: rep.defender.research,
     wall: rep.wallBefore,
     luck: rep.luck,
     morale: rep.morale,

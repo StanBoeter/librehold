@@ -148,6 +148,9 @@ type FieldReport struct {
 type ReportSide struct {
 	Units  UnitCounts `json:"units"`
 	Losses UnitCounts `json:"losses"`
+	// Research is the Smithy level per unit the side fought at, so the simulator can replay the battle as it was.
+	// A report written before levels were recorded has none, and the simulator fills in its own default.
+	Research *UnitCounts `json:"research,omitempty"`
 }
 
 type ScoutIntel struct {

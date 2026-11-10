@@ -1256,6 +1256,8 @@
     "hint": "Two armies and the defence they meet. The result comes from the same battle code a real attack runs, so nothing is sent and nothing changes.",
     "attacker": "Attacker",
     "defender": "Defender",
+    "level": "Level",
+    "troops": "Troops",
     "wall": "Wall level",
     "hide": "Hideout level",
     "luck": "Luck ({range}% either way)",

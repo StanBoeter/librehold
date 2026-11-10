@@ -1292,6 +1292,8 @@
     "hint": "Dwie armie i obrona, na którą trafiają. Wynik pochodzi z tego samego kodu bitwy, który wykonuje prawdziwy atak, więc nic nie jest wysyłane i nic się nie zmienia.",
     "attacker": "Atakujący",
     "defender": "Obrońca",
+    "level": "Poziom",
+    "troops": "Wojska",
     "wall": "Poziom muru",
     "hide": "Poziom kryjówki",
     "luck": "Szczęście ({range}% w obie strony)",

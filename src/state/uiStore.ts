@@ -16,6 +16,9 @@ export interface RallyPrefill {
 export interface SimPrefill {
   attacker?: Partial<Record<UnitId, number>>;
   defender?: Partial<Record<UnitId, number>>;
+  /** Smithy level per unit, so a battle is replayed with the levels it was actually fought at. */
+  attackerResearch?: Partial<Record<UnitId, number>>;
+  defenderResearch?: Partial<Record<UnitId, number>>;
   wall?: number;
   hideLevel?: number;
   luck?: number;

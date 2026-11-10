@@ -227,9 +227,10 @@ func onFieldEvent(w World, id string) error {
 	} else {
 		result = ResolveBattle(in)
 	}
+	attackerResearch, defenderResearch := researchOf(w, homeID), researchOf(w, targetHome)
 	r := Report{Time: w.Now(), Type: fieldReportType(result.Kind == "scout"), OriginID: homeID, TargetID: targetHome,
 		Origin: ReportVillageOf(w, homeID), Target: ReportVillageOf(w, targetHome),
-		Attacker: ReportSide{Units: c.Units, Losses: result.AttackerLosses},
+		Attacker: ReportSide{Units: c.Units, Losses: result.AttackerLosses, Research: &attackerResearch},
 		Luck:     result.Luck, Morale: result.Morale, Outcome: result.Outcome, Field: field}
 	var captured *Resources
 	if result.Kind == "scout" {
@@ -238,7 +239,7 @@ func onFieldEvent(w World, id string) error {
 			r.Scout = &ScoutIntel{Units: before}
 		}
 	} else {
-		r.Defender = ReportSide{Units: before, Losses: result.DefenderLosses}
+		r.Defender = ReportSide{Units: before, Losses: result.DefenderLosses, Research: &defenderResearch}
 		survivors := result.DefenderSurvivors
 		if target.Haul != nil {
 			keep, take := SplitLoot(*target.Haul, haulCapacity(survivors), haulCapacity(result.AttackerSurvivors))

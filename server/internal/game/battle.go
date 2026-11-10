@@ -151,10 +151,11 @@ func ResolveAttackArrival(w World, c *Command, target *Village) error {
 	if origin != nil {
 		attackerResearch = UnitCounts(origin.Research)
 	}
+	defenderResearch := UnitCounts(target.Research)
 	result := ResolveBattle(BattleInput{
 		Attacker: BattleSide{Units: c.Units, Research: attackerResearch},
 		Defender: BattleDefender{
-			BattleSide: BattleSide{Units: defenderUnits, Research: UnitCounts(target.Research)},
+			BattleSide: BattleSide{Units: defenderUnits, Research: defenderResearch},
 			Wall:       target.Buildings[BWall], Buildings: target.Buildings, Resources: target.Resources,
 			HideLevel: target.Buildings[BHide],
 		},
@@ -346,8 +347,8 @@ func ResolveAttackArrival(w World, c *Command, target *Village) error {
 		r := Report{
 			Time: w.Now(), Type: "attack", OriginID: c.OriginID, TargetID: target.ID,
 			Origin: ReportVillageOf(w, c.OriginID), Target: ReportVillageOf(w, target.ID),
-			Attacker: ReportSide{Units: c.Units, Losses: result.AttackerLosses},
-			Defender: ReportSide{Units: defenderUnits, Losses: result.DefenderLosses},
+			Attacker: ReportSide{Units: c.Units, Losses: result.AttackerLosses, Research: &attackerResearch},
+			Defender: ReportSide{Units: defenderUnits, Losses: result.DefenderLosses, Research: &defenderResearch},
 			Luck:     result.Luck, Morale: result.Morale, WallBefore: result.WallBefore, WallAfter: result.WallAfter,
 			BuildingDamage: result.BuildingDamage, Conquered: conquered, Outcome: result.Outcome, AutoFarm: c.AutoFarm,
 		}

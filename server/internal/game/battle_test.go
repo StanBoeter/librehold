@@ -815,3 +815,56 @@ func TestIntelIsPerAttacker(t *testing.T) {
 		t.Fatal("intel not per attacker")
 	}
 }
+
+// A report has to say what Smithy levels the battle was fought at: the simulator replays a report through the same
+// rules, and replayed at level 1 a level-3 army fights a different battle than the one that happened.
+func TestBattleReportCarriesBothSidesResearch(t *testing.T) {
+	cfg := gametest.TestConfig()
+	cfg.BeginnerProtectionDays = 0
+	w, att := gametest.NewWorldWithHuman(31, cfg)
+	def, err := game.JoinHuman(w, "h2", "Defender", 2, game.QuadrantRandom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	att.Research[game.USword] = 3
+	def.Research[game.USpear] = 2
+	att.Units[game.USword] = 200
+	def.Units[game.USpear] = 50
+
+	c := mustSend(t, w, att, def.X, def.Y, game.UnitCounts{game.USword: 200}, "attack")
+	advance(t, w, c.ArrivesAt)
+
+	reports := w.ReportsOf("h1")
+	if len(reports) != 1 {
+		t.Fatalf("reports %d", len(reports))
+	}
+	r := reports[0]
+	if r.Attacker.Research == nil || r.Defender.Research == nil {
+		t.Fatal("a battle report did not record the levels it was fought at")
+	}
+	if got := (*r.Attacker.Research)[game.USword]; got != 3 {
+		t.Fatalf("attacker swordsmen fought at level %d, want 3", got)
+	}
+	if got := (*r.Defender.Research)[game.USpear]; got != 2 {
+		t.Fatalf("defender spearmen fought at level %d, want 2", got)
+	}
+	// The other side's report says the same thing: it is the same battle.
+	theirs := w.ReportsOf("h2")
+	if len(theirs) != 1 || theirs[0].Attacker.Research == nil || (*theirs[0].Defender.Research)[game.USpear] != 2 {
+		t.Fatalf("the defender's copy of the report lost the levels: %+v", theirs)
+	}
+}
+
+// A report written before levels were recorded has none, and must still decode: the simulator fills in its own default.
+func TestReportWithoutResearchStillDecodes(t *testing.T) {
+	var r game.Report
+	if err := json.Unmarshal([]byte(`{"type":"attack","attacker":{"units":{"sword":10},"losses":{}}}`), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Attacker.Research != nil {
+		t.Fatalf("an old report grew levels: %+v", r.Attacker.Research)
+	}
+	if r.Attacker.Units[game.USword] != 10 {
+		t.Fatalf("units %+v", r.Attacker.Units)
+	}
+}
