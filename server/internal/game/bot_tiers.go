@@ -88,9 +88,15 @@ func (p EconomyPlay) farmShort(w World, v *Village, levels Buildings) bool {
 
 // storageShort: the storage, queued levels counted, holds less than StorageHours of the village's top income —
 // production plus the owner's loot per hour and village (the recent rate or the average, whichever is more), as
-// farming fills a storage much sooner.
-func (p EconomyPlay) storageShort(w World, v *Village, levels Buildings) bool {
-	return levels[BStorage] < BuildingDefs[BStorage].MaxLevel &&
+// farming fills a storage much sooner. The village's role caps it: a storehouse far past the level the role plans for
+// costs build time that the barracks and the stable need, and a bot that outgrows its own storage target is a bot
+// whose economy has outrun its army.
+func (p EconomyPlay) storageShort(w World, v *Village, role VillageRole, levels Buildings) bool {
+	cap := BuildingDefs[BStorage].MaxLevel
+	if t, ok := RoleTargets[role][BStorage]; ok {
+		cap = min(cap, t)
+	}
+	return levels[BStorage] < cap &&
 		StorageCapacity(levels[BStorage], v.Bonus) < p.StorageHours*topIncomePerHour(w, v)
 }
 
@@ -166,4 +172,14 @@ func setOfflinePlan(w World, botID PlayerID, v *Village, n int) {
 	}
 	v.BuildPlan = steps
 	schedulePlan(w, v.ID)
+}
+
+// storageTopRole is the highest storehouse a role plans for. A village whose economy grows far past what its army
+// needs spends its build queue on storage while its barracks stands still.
+func storageTopRole(role VillageRole) int {
+	top := BuildingDefs[BStorage].MaxLevel
+	if t, ok := RoleTargets[role][BStorage]; ok {
+		top = min(top, t)
+	}
+	return top
 }

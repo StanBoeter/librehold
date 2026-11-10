@@ -47,6 +47,11 @@ var BotConfig = struct {
 	ShortTradeChance      float64              `json:"shortTradeChance"`
 	OffShare              map[BotStyle]float64 `json:"offShare"`
 	StyleWeights          map[BotStyle]float64 `json:"styleWeights"`
+	// HomeGuardPop is the troop population a village keeps home whatever else may go out, so a village of nothing
+	// but raiders still shows a scout somebody.
+	HomeGuardPop float64 `json:"homeGuardPop"`
+	// HomeScoutShare is the share of a village's scouts kept home: a raid may take the rest.
+	HomeScoutShare float64 `json:"homeScoutShare"`
 }{
 	StrongSkill:     0.7,
 	MediumSkill:     0.4,
@@ -83,6 +88,8 @@ var BotConfig = struct {
 		StylePointBuilder: 0.5, StyleTurtle: 0.3},
 	StyleWeights: map[BotStyle]float64{StyleFarmer: 1, StyleTurtle: 1, StyleAggressor: 1, StylePointBuilder: 1,
 		StyleOpportunist: 1},
+	HomeGuardPop:   10,
+	HomeScoutShare: 0.5,
 }
 
 // Bot names are two syllables that read the same in every language ("Torvik", "Velmund"), sometimes with digits.

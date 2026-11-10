@@ -108,10 +108,20 @@ func winsSafely(from *Village, k *KnownVillage, units UnitCounts) bool {
 	return r.Outcome == "attackerWon" && r.AttackerSurvivors.Total() > 0 && r.AttackerLosses.Total() == 0
 }
 
-// SizeRaid is the smallest group that wins without losses: light cavalry (spears and swords before a stable).
+// SizeRaid is the smallest group that wins without losses, held to what the village may spare: the garrison stays
+// home, so a raid is never all of a village's army.
+func SizeRaid(w World, from *Village, k *KnownVillage, skill float64) (UnitCounts, bool) {
+	units, ok := sizeRaid(w, from, k, skill)
+	if !ok {
+		return UnitCounts{}, false
+	}
+	return withinGuard(from, units)
+}
+
+// sizeRaid is the smallest group that wins without losses: light cavalry (spears and axes before a stable).
 // Unknown wall → a 4-LC scouting group (+ scout); wall 1–2 without defenders → 2 rams per level + 20 axes
 // (strong bots only); otherwise none.
-func SizeRaid(w World, from *Village, k *KnownVillage, skill float64) (UnitCounts, bool) {
+func sizeRaid(w World, from *Village, k *KnownVillage, skill float64) (UnitCounts, bool) {
 	home := from.Units
 	cavalry := home[ULightCav] > 0
 	if k.Wall == nil {
@@ -133,7 +143,7 @@ func SizeRaid(w World, from *Village, k *KnownVillage, skill float64) (UnitCount
 		}
 		return UnitCounts{}, false
 	}
-	maxN := home[USpear] + home[USword]
+	maxN := home[USpear] + home[UAxe]
 	if cavalry {
 		maxN = home[ULightCav]
 	}
@@ -144,9 +154,10 @@ func SizeRaid(w World, from *Village, k *KnownVillage, skill float64) (UnitCount
 		if cavalry {
 			return UnitCounts{ULightCav: n}
 		}
+		// No stable yet: the spears a village farms with, then the axes if it has them.
 		spear := min(home[USpear], n)
 		if spear < n {
-			return UnitCounts{USpear: spear, USword: min(home[USword], n-spear)}
+			return UnitCounts{USpear: spear, UAxe: min(home[UAxe], n-spear)}
 		}
 		return UnitCounts{USpear: spear}
 	}
@@ -249,7 +260,7 @@ func farmFrom(w World, botID PlayerID, v *Village, maxRaids int, players bool) i
 	sort.SliceStable(targets, func(i, j int) bool { return targets[i].score > targets[j].score })
 	misses, sent := 0, 0
 	for _, t := range targets {
-		if UnitCounts(v.Units).Total() == 0 || misses > 20 || sent >= maxRaids {
+		if raidable(v) <= 0 || misses > 20 || sent >= maxRaids {
 			break
 		}
 		units, ok := SizeRaid(w, v, t.k, brainOf(w, botID).Skill)
@@ -311,9 +322,13 @@ func PlanNightRuns(w World, botID PlayerID, nextSessionAt int64) {
 			if v.Units[ULightCav] < 4 || sent >= BotConfig.MaxNightRuns {
 				break
 			}
-			// A night is many hours of rest for the farm — a group as for a full farm.
+			// A night is many hours of rest for the farm — a group as for a full farm, held to the garrison.
 			n := min(v.Units[ULightCav], max(4, int(math.Ceil(BotConfig.FarmLoot*(0.5+expectedHaulRatio(k))/UnitDefs[ULightCav].Haul))))
-			if sendRaid(w, botID, v, k, UnitCounts{ULightCav: n}, true, nextSessionAt) {
+			units, ok := withinGuard(v, UnitCounts{ULightCav: n})
+			if !ok {
+				break
+			}
+			if sendRaid(w, botID, v, k, units, true, nextSessionAt) {
 				sent++
 			}
 		}

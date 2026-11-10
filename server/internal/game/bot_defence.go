@@ -1,13 +1,95 @@
 package game
 
 import (
+	"math"
 	"slices"
 	"sort"
 )
 
 // Bot defence: reacting to incoming attacks with support, dodges and the wall.
 
-var defensiveUnitIDs = []UnitID{USpear, USword, UArcher, UHeavyCav}
+// garrisonUnitIDs are the units that never leave on a raid: the ones whose defence is what they are for. A raid is
+// what a village can spare, never its garrison. The spear is not among them — 10 attack against 15 defence makes it
+// the cheap all-rounder a village farms with long before it can afford swords. This is the one list: what is not in
+// it is what a raid is made of, so the two can never drift apart.
+var garrisonUnitIDs = []UnitID{USword, UArcher, UMountedArcher, UHeavyCav, UPaladin}
+
+// supportUnitIDs are the units a village answers an attack with when a neighbour's support is what would save it.
+// The spear defends well enough to be worth marching next door, unlike the haulers.
+var supportUnitIDs = []UnitID{USpear, USword, UArcher, UHeavyCav}
+
+// unitPop is the farm population a group of units takes.
+func unitPop(u UnitCounts) int {
+	pop := 0
+	for _, id := range UnitIDs {
+		pop += u[id] * UnitDefs[id].Pop
+	}
+	return pop
+}
+
+func villagePop(v *Village) int { return unitPop(UnitCounts(v.Units)) }
+
+// guardPool is the floor a raiding village keeps at home regardless of what may go out: HomeGuardPop, so even a
+// village with nothing but raiders shows a scout somebody. No share of the army is held back — the raiders exist to
+// raid, and keeping a quarter of them home would only make the bot farm worse than the player it imitates.
+func guardPool() float64 {
+	return BotConfig.HomeGuardPop
+}
+
+// garrisonPop is what may never leave: the defensive units, or at least the guard floor, whichever is more.
+func garrisonPop(v *Village) float64 {
+	held := 0
+	for _, u := range garrisonUnitIDs {
+		held += v.Units[u] * UnitDefs[u].Pop
+	}
+	return math.Max(float64(held), guardPool())
+}
+
+// raidable is the population that may still leave the village. Below zero the garrison is already short.
+func raidable(v *Village) float64 { return float64(villagePop(v)) - garrisonPop(v) }
+
+// offUnit: only what is not the garrison may leave. A noble is never raiding — it is the one unit a conquest is
+// built around, and it leaves only on an operation the bot plans as one.
+func offUnit(u UnitID) bool { return u != UNoble && !slices.Contains(garrisonUnitIDs, u) }
+
+// offScouts is how many scouts a raid may take: all but the share kept back for looking at its own doorstep.
+func offScouts(v *Village) int {
+	keep := max(1, int(math.Ceil(BotConfig.HomeScoutShare*float64(v.Units[UScout]))))
+	return max(0, v.Units[UScout]-keep)
+}
+
+// withinGuard keeps the part of a group that may leave without breaking the garrison, trimming what will not fit.
+// It reports false when nothing can go at all, which is the case for a village that is still all defence.
+func withinGuard(v *Village, u UnitCounts) (UnitCounts, bool) {
+	room := raidable(v)
+	if room <= 0 {
+		return UnitCounts{}, false
+	}
+	var out UnitCounts
+	for _, id := range UnitIDs {
+		if offUnit(id) {
+			out[id] = u[id]
+		}
+	}
+	if out[UScout] > 0 {
+		out[UScout] = min(out[UScout], offScouts(v))
+	}
+	if out.Total() == 0 {
+		return UnitCounts{}, false
+	}
+	for _, id := range []UnitID{UCatapult, URam, UAxe, ULightCav, USpear, UScout} {
+		if float64(unitPop(out)) <= room {
+			break
+		}
+		over := float64(unitPop(out)) - room
+		cut := min(out[id], int(math.Ceil(over/float64(UnitDefs[id].Pop))))
+		out[id] -= cut
+	}
+	if out.Total() == 0 || float64(unitPop(out)) > room {
+		return UnitCounts{}, false
+	}
+	return out, true
+}
 
 func defenceOf(u UnitCounts) float64 {
 	d := 0.0
@@ -35,7 +117,7 @@ func estimateWave(w World, botID PlayerID, c *Command) float64 {
 
 func defensiveUnits(v *Village) UnitCounts {
 	var out UnitCounts
-	for _, u := range defensiveUnitIDs {
+	for _, u := range supportUnitIDs {
 		out[u] = v.Units[u]
 	}
 	return out
@@ -54,7 +136,36 @@ type helperVillage struct {
 	units UnitCounts
 }
 
+// underAttack: an enemy attack on the village is still on its way. A village that is itself about to be hit does
+// not send its army next door — that is how both villages fall to one wave.
+func underAttack(w World, botID PlayerID, v *Village) bool {
+	for _, c := range w.CommandsTo(v.ID) {
+		if c.Type != "attack" {
+			continue
+		}
+		if owner := w.Village(c.OriginID); owner != nil && owner.OwnerID == Ref(botID) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// supportShare is the most of a village's defence another village may draw on: the rest stays where it is, because
+// the helper may be the next wave's target and neither village knows what else is coming.
+const supportShare = 0.7
+
+// supportable is the part of a village's garrison it will lend to a neighbour.
+func supportable(v *Village) UnitCounts {
+	var out UnitCounts
+	for _, u := range supportUnitIDs {
+		out[u] = int(math.Floor(float64(v.Units[u]) * supportShare))
+	}
+	return out
+}
+
 // tryStack: support from defensive villages that makes it before the hit; sent when together they hold 1.5 × wave.
+// A helper that is under attack itself sends nothing: it needs its army more than its neighbour does.
 func tryStack(w World, botID PlayerID, v *Village, c *Command, need float64) bool {
 	b := brainOf(w, botID)
 	inbound := 0.0
@@ -76,7 +187,10 @@ func tryStack(w World, botID PlayerID, v *Village, c *Command, need float64) boo
 		if o.ID == v.ID || role != RoleDef {
 			continue
 		}
-		units := defensiveUnits(o)
+		if underAttack(w, botID, o) {
+			continue
+		}
+		units := supportable(o)
 		if units.Total() > 0 && w.Now()+TravelTimeForUnits(w, o, v.X, v.Y, units) < c.ArrivesAt {
 			helpers = append(helpers, helperVillage{o, units})
 		}
@@ -116,8 +230,9 @@ func trySnipe(w World, botID PlayerID, v *Village, train Train) {
 	mid := cmds[0].ArrivesAt + (cmds[1].ArrivesAt-cmds[0].ArrivesAt)/2
 	var best *helperVillage
 	for _, o := range PlayerVillages(w, botID) {
-		units := defensiveUnits(o)
-		if o.ID == v.ID || units.Total() == 0 || w.Now()+TravelTimeForUnits(w, o, v.X, v.Y, units) > mid {
+		units := supportable(o)
+		if o.ID == v.ID || units.Total() == 0 || underAttack(w, botID, o) ||
+			w.Now()+TravelTimeForUnits(w, o, v.X, v.Y, units) > mid {
 			continue
 		}
 		if best == nil || Distance(o.X, o.Y, v.X, v.Y) < Distance(best.v.X, best.v.Y, v.X, v.Y) {

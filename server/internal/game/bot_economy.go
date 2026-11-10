@@ -105,6 +105,7 @@ func NextBuilding(w World, botID PlayerID, v *Village, rng func() float64) (Buil
 	brain := brainOf(w, botID)
 	levels := EffectiveBuildingLevels(v)
 	play := economyPlay(w, botID)
+	role := ChooseRole(w, botID, v)
 	capacity := float64(VillageFarmCapacity(v))
 	if play.FarmAt > 0 {
 		if play.farmShort(w, v, levels) {
@@ -115,7 +116,13 @@ func NextBuilding(w World, botID PlayerID, v *Village, rng func() float64) (Buil
 		return BFarm, true
 	}
 	storageCap := VillageStorageCapacity(v)
-	if !queuedBuilding(v, BStorage) && levels[BStorage] < BuildingDefs[BStorage].MaxLevel {
+	// The storehouse grows past its role target only as far as the role allows: past that it is build time the
+	// barracks and the stable need, and a village whose economy outruns its army never catches up.
+	storageTop := BuildingDefs[BStorage].MaxLevel
+	if t, ok := RoleTargets[role][BStorage]; ok {
+		storageTop = min(storageTop, t)
+	}
+	if !queuedBuilding(v, BStorage) && levels[BStorage] < storageTop {
 		for _, r := range ResourceIDs {
 			if v.Resources.Get(r) >= (1-BotConfig.BottleneckShare)*storageCap {
 				return BStorage, true
@@ -130,7 +137,7 @@ func NextBuilding(w World, botID PlayerID, v *Village, rng func() float64) (Buil
 			}
 		}
 	}
-	if play.StorageHours > 0 && play.storageShort(w, v, levels) {
+	if play.StorageHours > 0 && play.storageShort(w, v, role, levels) {
 		return BStorage, true
 	}
 	if b, ok := play.cavalryStep(levels); ok {
@@ -141,7 +148,6 @@ func NextBuilding(w World, botID PlayerID, v *Village, rng func() float64) (Buil
 			return s.Building, true
 		}
 	}
-	role := ChooseRole(w, botID, v)
 	ecoFirst := makesMistake(w, botID, "ecoTo30BeforeMilitary", v.ID) &&
 		(levels[BWood] < 30 || levels[BClay] < 30 || levels[BIron] < 30)
 	if play.MinesFirstTo > 0 {
@@ -160,6 +166,18 @@ func NextBuilding(w World, botID PlayerID, v *Village, rng func() float64) (Buil
 			continue
 		}
 		candidates = append(candidates, Option[BuildingID]{b, -SumResources(BuildCost(b, levels[b]+1))})
+	}
+	// The role's list done, a village keeps raising what makes its army: the alternative is a full storehouse and no
+	// army, which is where a mixed village sat once it reached the list's barracks 10.
+	if len(candidates) == 0 {
+		for _, t := range militaryTargetsInOrder(role) {
+			b := t.Building
+			if levels[b] >= t.Level || !MeetsRequirements(levels, b) ||
+				(ecoFirst && !slices.Contains(resourceBuildings, b)) {
+				continue
+			}
+			candidates = append(candidates, Option[BuildingID]{b, -SumResources(BuildCost(b, levels[b]+1))})
+		}
 	}
 	if len(candidates) == 0 {
 		return 0, false
@@ -214,9 +232,10 @@ type recruitable struct {
 // recruitableUnits are the role's units the village can already train, most lacking first. With beyondTargets
 // the targets are soft: spending a surplus keeps training in the same proportions.
 func recruitableUnits(w World, v *Village, role VillageRole, beyondTargets bool) []recruitable {
+	targets := scaledTroopTargets(role, EffectiveBuildingLevels(v), v.Bonus)
 	var out []recruitable
 	for _, u := range UnitIDs {
-		target, ok := TroopTargets[role][u]
+		target, ok := targets[u]
 		if !ok || EffectiveResearchLevel(v, u) < 1 {
 			continue
 		}
@@ -273,14 +292,78 @@ func CanRecruitMore(w World, botID PlayerID, v *Village) bool {
 	return false
 }
 
+// researchFloor is how far the units the role fights with must be unlocked before the Smithy is used for levels.
+// A bot researches the units it wants at level 1 first (that is what unlocks them at all), then comes back for the
+// attack and defence bonus of levels 2 and 3.
+func researchFloor(v *Village, wanted []UnitID) bool {
+	for _, u := range wanted {
+		if UnitNeedsResearch(u) && EffectiveResearchLevel(v, u) < 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// researchCap is the research level a bot still aims for: the strength of the player behind it, not of the world.
+// Only the weakest player stops at the free unlock; everyone else reaches the Smithy's maximum, so the last levels
+// are a matter of spending time in the Smithy, not of being a good player.
+func researchCap(skill float64) int {
+	if TierOf(skill) == TierWeak {
+		return min(2, ResearchBalance.MaxLevel)
+	}
+	return ResearchBalance.MaxLevel
+}
+
+// researchWanted is the units a role cares about: the haulers and scouts it always unlocks, then the ones it
+// actually fights with.
 func researchWanted(role VillageRole) []UnitID {
-	out := []UnitID{UScout, ULightCav}
-	for _, u := range UnitIDs {
+	var out []UnitID
+	for _, u := range []UnitID{UScout, ULightCav} {
 		if _, ok := TroopTargets[role][u]; ok {
 			out = append(out, u)
 		}
 	}
+	for _, u := range UnitIDs {
+		if _, ok := TroopTargets[role][u]; ok && !slices.Contains(out, u) {
+			out = append(out, u)
+		}
+	}
 	return out
+}
+
+// nextResearch is the unit to research next, if any: every wanted unit at level 1 first, then levels on the
+// units that carry the fighting, up to the research cap.
+func nextResearch(w World, botID PlayerID, v *Village) (UnitID, bool) {
+	wanted := researchWanted(ChooseRole(w, botID, v))
+	cap := researchCap(brainOf(w, botID).Skill)
+	if researchFloor(v, wanted) {
+		for _, u := range wanted {
+			if !UnitNeedsResearch(u) || EffectiveResearchLevel(v, u) >= 1 || !buildableNow(v, u) {
+				continue
+			}
+			return u, true
+		}
+	}
+	for _, u := range wanted {
+		if UnitDefs[u].Attack <= 0 && UnitDefs[u].Defense <= UnitDefs[u].Attack {
+			continue // the scout: its levels change nothing it is not already good at
+		}
+		if EffectiveResearchLevel(v, u) >= cap || !buildableNow(v, u) {
+			continue
+		}
+		return u, true
+	}
+	return 0, false
+}
+
+// buildableNow: the unit's buildings are up, so its research is not wasted on a level that cannot be trained yet.
+func buildableNow(v *Village, u UnitID) bool {
+	for _, r := range UnitDefs[u].Requirements {
+		if v.Buildings[r.Building] < r.Level {
+			return false
+		}
+	}
+	return true
 }
 
 // CanSpendMore: a free slot with an affordable build, recruitment, or a research.
@@ -294,10 +377,8 @@ func CanSpendMore(w World, botID PlayerID, v *Village) bool {
 	if len(v.ResearchQueue) > 0 {
 		return false
 	}
-	for _, u := range researchWanted(ChooseRole(w, botID, v)) {
-		if EffectiveResearchLevel(v, u) < 1 && len(CheckResearch(w, v, u).Blockers) == 0 {
-			return true
-		}
+	if u, ok := nextResearch(w, botID, v); ok {
+		return len(CheckResearch(w, v, u).Blockers) == 0
 	}
 	return false
 }
@@ -342,19 +423,20 @@ func PlanResearch(w World, botID PlayerID, v *Village) {
 		return
 	}
 	savings := nobleSavings(w, v)
-	for _, u := range researchWanted(ChooseRole(w, botID, v)) {
-		check := CheckResearch(w, v, u)
-		if EffectiveResearchLevel(v, u) >= 1 || len(check.Blockers) > 0 {
-			continue
-		}
-		left := v.Resources
-		SubtractResources(&left, check.Cost)
-		if !HasResources(left, savings) {
-			return
-		}
-		act(w, botID, "research", villageArgs(v.ID, "unit", u), func() error { _, err := EnqueueResearch(w, botID, v.ID, u); return err })
+	u, ok := nextResearch(w, botID, v)
+	if !ok {
 		return
 	}
+	check := CheckResearch(w, v, u)
+	if len(check.Blockers) > 0 {
+		return
+	}
+	left := v.Resources
+	SubtractResources(&left, check.Cost)
+	if !HasResources(left, savings) {
+		return
+	}
+	act(w, botID, "research", villageArgs(v.ID, "unit", u), func() error { _, err := EnqueueResearch(w, botID, v.ID, u); return err })
 }
 
 func recruitQueueEnd(v *Village, u UnitID, now int64) int64 {
@@ -375,15 +457,23 @@ func affordableBuilds(w World, botID PlayerID, v *Village) []buildOption {
 	levels := EffectiveBuildingLevels(v)
 	play := economyPlay(w, botID)
 	wanted := map[BuildingID]bool{BFarm: play.FarmAt == 0 || play.farmShort(w, v, levels),
-		BStorage: play.StorageHours == 0 || play.storageShort(w, v, levels)}
+		BStorage: play.StorageHours == 0 || play.storageShort(w, v, ChooseRole(w, botID, v), levels)}
 	for _, s := range openingFor(w, botID) {
 		if levels[s.Building] < s.Level {
 			wanted[s.Building] = true
 		}
 	}
-	for _, t := range roleTargetsInOrder(ChooseRole(w, botID, v)) {
+	role := ChooseRole(w, botID, v)
+	for _, t := range roleTargetsInOrder(role) {
 		if levels[t.Building] < play.target(w, botID, t.Building, t.Level) && (t.Building != BFarm || wanted[BFarm]) &&
 			(t.Building != BStorage || wanted[BStorage]) {
+			wanted[t.Building] = true
+		}
+	}
+	// The role's list done, the buildings that make the army are what is left to want — the same fallback
+	// NextBuilding uses, so what a village may queue and what it is willing to queue cannot disagree.
+	for _, t := range militaryTargetsInOrder(role) {
+		if levels[t.Building] < t.Level {
 			wanted[t.Building] = true
 		}
 	}
