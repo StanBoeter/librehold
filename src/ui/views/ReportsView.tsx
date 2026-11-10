@@ -75,6 +75,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const json = useGameStore((s) => JSON.stringify(s.game!.reports.find((r) => r.id === id) ?? null));
   const r = JSON.parse(json) as Report | null;
   const openRally = useUiStore((s) => s.openRally);
+  const openSimulator = useUiStore((s) => s.openSimulator);
   const sendTemplate = useGameStore((s) => s.sendTemplate);
   const deleteReport = useGameStore((s) => s.deleteReport);
   const villages = useGameStore((s) => s.game!.villages);
@@ -93,6 +94,16 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const tx = r.target.x;
   const ty = r.target.y;
   const canRetry = !isField && tx !== undefined && ty !== undefined && !(target && isHumanVillage(target));
+  // A battle report holds both armies and the wall it happened at, so the simulator can replay it. A field report
+  // is a meeting in the open with no village to defend, so there is nothing to replay.
+  const canSimulate = !isField && r.type !== 'scout';
+  const simulate = (rep: Report) => openSimulator({
+    attacker: rep.attacker.units,
+    defender: rep.defender.units,
+    wall: rep.wallBefore,
+    luck: rep.luck,
+    morale: rep.morale,
+  });
   const haulSum = r.haul ? r.haul.wood + r.haul.clay + r.haul.iron : 0;
 
   return (
@@ -104,6 +115,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
       </div>
       <div className="flex gap-2 flex-wrap">
         {canRetry && <button className="btn" onClick={() => openRally({ x: tx!, y: ty!, units: r.attacker.units, mode: 'attack' })}>{t('reports.retry')}</button>}
+        {canSimulate && <button className="btn" onClick={() => simulate(r)}>{t('sim.fromReport')}</button>}
         {canRetry && <button className="btn" onClick={() => sendTemplate('A', tx!, ty!)}>{t('reports.sendA')}</button>}
         {turnBackId && <button className="btn" onClick={() => { void cancel(turnBackId); }}>{t('armyCard.turnBack')}</button>}
         <button className="btn ml-auto" onClick={() => { deleteReport(r.id); onBack(); }}>{t('reports.delete')}</button>

@@ -20,8 +20,9 @@ import { t, useT } from '../../i18n/i18n';
 import { RichText } from '../components/RichText';
 import { COMMAND_ICON, commandEnds, villageLabelOf } from '../villageName';
 import { NumberInput } from '../../shared/NumberInput';
+import { SimulatorTab } from './SimulatorView';
 
-type Tab = 'send' | 'commands' | 'templates';
+type Tab = 'send' | 'commands' | 'templates' | 'simulate';
 
 function blockerText(b: SendBlocker, now: number): string {
   switch (b.kind) {
@@ -344,7 +345,8 @@ function TemplatesTab() {
 
 export function RallyPointView() {
   const prefill = useUiStore((s) => s.rallyPrefill);
-  const [tab, setTab] = useState<Tab>(prefill ? 'send' : 'send');
+  const simPrefill = useUiStore((s) => s.simPrefill);
+  const [tab, setTab] = useState<Tab>(prefill ? 'send' : simPrefill ? 'simulate' : 'send');
   const commandCount = useGameStore((s) => playerCommands(s.game!).length);
   const activeId = useGameStore((s) => selectActiveVillage(s).id);
   useEffect(() => { if (prefill) setTab('send'); }, [prefill]);
@@ -353,7 +355,7 @@ export function RallyPointView() {
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <h2 className="text-lg mr-2">{t('rally.title')}</h2>
-        {([['send', t('rally.tab.send')], ['commands', t('rally.tab.commands', { n: commandCount })], ['templates', t('rally.tab.templates')]] as const).map(([id, label]) => (
+        {([['send', t('rally.tab.send')], ['commands', t('rally.tab.commands', { n: commandCount })], ['templates', t('rally.tab.templates')], ['simulate', t('rally.tab.simulate')]] as const).map(([id, label]) => (
           <button key={id} className={`btn ${tab === id ? '!bg-panel-dark' : ''}`} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
@@ -361,6 +363,7 @@ export function RallyPointView() {
       {tab === 'send' && <SendTab />}
       {tab === 'commands' && <CommandsTab />}
       {tab === 'templates' && <TemplatesTab />}
+      {tab === 'simulate' && <SimulatorTab />}
     </div>
   );
 }

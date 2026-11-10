@@ -1103,7 +1103,8 @@
     "tab": {
       "send": "Send troops",
       "commands": "Commands ({n})",
-      "templates": "Templates"
+      "templates": "Templates",
+      "simulate": "Simulator"
     }
   },
   "biome": {
@@ -1250,5 +1251,34 @@
       "return": "Return",
       "intercept": "Interception"
     }
+  },
+  "sim": {
+    "hint": "Two armies and the defence they meet. The result comes from the same battle code a real attack runs, so nothing is sent and nothing changes.",
+    "attacker": "Attacker",
+    "defender": "Defender",
+    "wall": "Wall level",
+    "hide": "Hideout level",
+    "luck": "Luck ({range}% either way)",
+    "morale": "Morale",
+    "catapultTarget": "Catapult target:",
+    "randomBuilding": "the first building it can break",
+    "run": "Simulate",
+    "running": "Simulating…",
+    "clear": "Clear",
+    "fillVillage": "Fill in my troops",
+    "failed": "The simulation did not answer. Try again.",
+    "none": "—",
+    "side": "Side",
+    "sent": "Sent",
+    "lost": "Lost",
+    "left": "Survivors",
+    "cost": "Value lost",
+    "attackerWon": "The attacker wins",
+    "defenderWon": "The defender holds",
+    "powers": "Attack power {attack} against defence power {defense}.",
+    "wallFell": "The wall falls from {from} to {to}.",
+    "buildingHit": "{building} damaged: {from} → {to}.",
+    "haul": "Haul back: {loot} resources.",
+    "fromReport": "Fill in simulator"
   }
 }
