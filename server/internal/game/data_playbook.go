@@ -3,6 +3,7 @@ package game
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 )
 
 // The bots' playbook: openings, role and troop targets, mistakes and plays.
@@ -69,10 +70,70 @@ var RoleTargets = map[VillageRole]map[BuildingID]int{
 		BIron: 25, BWall: 15, BHide: 10},
 }
 
+// MilitaryTargets are the buildings that make an army, at the level a village keeps raising them to once its role's
+// list is done. A mixed village's list stops at barracks 10, which a bot reaches in a week; from there nothing on the
+// list is left to build, so without this a grown village queues nothing at all while its storehouse sits full —
+// and the army stays the size a barracks 10 can turn out. The economy is not among them: a finished economy is a
+// finished economy, and the resources it makes are what these cost.
+var MilitaryTargets = map[VillageRole]map[BuildingID]int{
+	RoleOff:   {BBarracks: 25, BStable: 20, BWorkshop: 15, BSmithy: 20},
+	RoleDef:   {BBarracks: 25, BStable: 20, BSmithy: 20},
+	RoleMixed: {BBarracks: 20, BStable: 15, BSmithy: 18},
+}
+
 var TroopTargets = map[VillageRole]map[UnitID]int{
 	RoleOff:   {UAxe: 6000, ULightCav: 3000, URam: 250, UCatapult: 50, UScout: 100},
 	RoleDef:   {USpear: 8000, UHeavyCav: 2000, UScout: 100},
 	RoleMixed: {USpear: 300, USword: 100, ULightCav: 600, UScout: 50},
+}
+
+// TroopTargetScale is how much of the farm a role's targets aim to fill once the village has grown, and the farm
+// level from which they do. Below it a village keeps the plain TroopTargets count, so a small village is not asked
+// for an army its farm cannot hold; above it the targets grow with the farm, which is the only thing that caps a
+// late-game army otherwise.
+var TroopTargetScale = map[VillageRole]struct {
+	PopShare float64
+	FarmFrom int
+}{
+	RoleMixed: {0.5, 24},
+	RoleOff:   {0.6, 26},
+	RoleDef:   {0.6, 26},
+}
+
+// troopTargetPop is the troop population a role aims for at this village: the table's own count, grown towards
+// PopShare of the farm once the farm is big enough.
+func troopTargetPop(role VillageRole, levels Buildings, bonus *VillageBonus) float64 {
+	// Summed in UnitIDs order: the total must not depend on Go's randomised map iteration.
+	var base float64
+	for _, u := range UnitIDs {
+		base += float64(TroopTargets[role][u] * UnitDefs[u].Pop)
+	}
+	scale, ok := TroopTargetScale[role]
+	if !ok || scale.PopShare <= 0 || levels[BFarm] < scale.FarmFrom {
+		return base
+	}
+	return math.Max(base, scale.PopShare*FarmCapacity(levels[BFarm], bonus))
+}
+
+// scaledTroopTargets is TroopTargets grown to troopTargetPop, keeping the role's own proportions: a village that
+// grows into a bigger farm grows into a bigger version of the army it already was, not a different one.
+// Below the growth point it is exactly the table, so a small village is asked for no more than it was.
+func scaledTroopTargets(role VillageRole, levels Buildings, bonus *VillageBonus) map[UnitID]int {
+	plain := TroopTargets[role]
+	var base float64
+	for _, u := range UnitIDs {
+		base += float64(plain[u] * UnitDefs[u].Pop)
+	}
+	want := troopTargetPop(role, levels, bonus)
+	out := make(map[UnitID]int, len(plain))
+	for u, n := range plain {
+		if base <= 0 || want <= base {
+			out[u] = n
+			continue
+		}
+		out[u] = int(math.Round(float64(n) * want / base))
+	}
+	return out
 }
 
 // Mistakes are the chances that a bot makes a given mistake (strong / weak; linear in skill between).
@@ -164,4 +225,16 @@ func minesOpening() []OpeningStep {
 		}
 	}
 	return append(out, OpeningStep{BStorage, 10}, OpeningStep{BMain, 7}, OpeningStep{BBarracks, 3}, OpeningStep{BSmithy, 1})
+}
+
+// militaryTargetsInOrder walks MilitaryTargets in BuildingIDs order, so a weighted pick over the candidates cannot
+// depend on Go's randomised map iteration — the same village and the same seed must build the same things.
+func militaryTargetsInOrder(role VillageRole) []BuildingRequirement {
+	var out []BuildingRequirement
+	for _, b := range BuildingIDs {
+		if lvl, ok := MilitaryTargets[role][b]; ok {
+			out = append(out, BuildingRequirement{b, lvl})
+		}
+	}
+	return out
 }

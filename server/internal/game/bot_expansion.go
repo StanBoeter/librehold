@@ -36,7 +36,10 @@ func readyForNobles(w World, botID PlayerID, v *Village) bool {
 	var have, target UnitCounts
 	for _, u := range UnitIDs {
 		have[u] = UnitCountIncludingQueued(v, u)
-		target[u] = TroopTargets[ChooseRole(w, botID, v)][u]
+	}
+	scaled := scaledTroopTargets(ChooseRole(w, botID, v), EffectiveBuildingLevels(v), v.Bonus)
+	for _, u := range UnitIDs {
+		target[u] = scaled[u]
 	}
 	return unitsAttack(have) >= 0.5*unitsAttack(target)
 }
