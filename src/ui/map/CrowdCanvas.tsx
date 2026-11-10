@@ -21,6 +21,30 @@ export function crowdFor(a: MapArmy, cap: number = CROWD.maxPerArmy): { unit: Cr
   return crowdOf(a.units, cap);
 }
 
+/** A crowd cut down to at most `max` figures, keeping every unit type it has while the room allows it. */
+export function trimCrowd(crowd: { unit: CrowdUnit; figures: number }[], max: number): { unit: CrowdUnit; figures: number }[] {
+  const groups = crowd.filter((c) => c.figures > 0);
+  const sum = groups.reduce((s, c) => s + c.figures, 0);
+  if (groups.length === 0 || sum <= max) return crowd;
+  const room = Math.max(1, max);
+  // Too little room for every type: the strongest ones still march, one figure each, rather than overspending.
+  if (room < groups.length) {
+    return [...groups].sort((a, b) => b.figures - a.figures).slice(0, room).map((c) => ({ unit: c.unit, figures: 1 }));
+  }
+  // One figure each, then the rest shared out by size; the remainder goes to the largest fractions.
+  const spare = room - groups.length;
+  const exact = groups.map((c) => (spare * c.figures) / sum);
+  const out = groups.map((c, i) => ({ unit: c.unit, figures: 1 + Math.floor(exact[i]!) }));
+  const byFraction = groups.map((_, i) => i).sort((a, b) => (exact[b]! % 1) - (exact[a]! % 1));
+  let left = room - out.reduce((s, c) => s + c.figures, 0);
+  for (const i of byFraction) {
+    if (left <= 0) break;
+    out[i]!.figures += 1;
+    left -= 1;
+  }
+  return out;
+}
+
 const images = new Map<string, HTMLImageElement>();
 export function image(url: string): HTMLImageElement | null {
   if (typeof Image === 'undefined') return null;
@@ -96,16 +120,18 @@ export function CrowdCanvas({ armies, toPx, th, width, height, seed, isVillage, 
       });
       const reach = crowdReach(h);
       // The window sees the armies inside it and as far again beyond its border, so growing the map shows more of them
-      // rather than the same few drawn larger. Only the figures themselves can shrink, once the budget runs out.
-      const shown = placed.filter((p) => p.x >= -reach && p.x <= w + reach && p.y >= -reach && p.y <= ht + reach);
+      // rather than the same few drawn larger.
+      const shown = placed.filter((p) => p.a.kind !== 'trade' && p.x >= -reach && p.x <= w + reach && p.y >= -reach && p.y <= ht + reach);
       let figures = 0, boats = 0, budget: number = CROWD.maxOnScreen;
       const inCrowd = new Set<string>();
       const labelled = new Set<string>();
-      for (const p of shown) {
-        if (p.a.kind === 'trade') continue;
-        const crowd = crowdFor(p.a, Math.min(CROWD.maxPerArmy, crowdShare(shown.length)));
+      for (const [i, p] of shown.entries()) {
+        // What is left of the budget is split over the armies still to come, so the crowds shrink together and every
+        // army in the window keeps marching; none is ever left behind as an icon.
+        const allowance = Math.min(CROWD.maxPerArmy, crowdShare(shown.length), Math.max(1, Math.floor(budget / (shown.length - i))));
+        const crowd = trimCrowd(crowdFor(p.a, allowance), allowance);
         const n = crowd.reduce((s, c) => s + c.figures, 0);
-        if (n === 0 || n > budget) continue;
+        if (n === 0) continue;
         budget -= n;
         inCrowd.add(p.a.id);
         if (labelled.size < LABELS) labelled.add(p.a.id);
