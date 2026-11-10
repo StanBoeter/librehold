@@ -129,6 +129,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   );
   const r = JSON.parse(json) as Report | null;
   const openRally = useUiStore((s) => s.openRally);
+  const openSimulator = useUiStore((s) => s.openSimulator);
   const sendTemplate = useGameStore((s) => s.sendTemplate);
   const deleteReport = useGameStore((s) => s.deleteReport);
   const villages = useGameStore((s) => s.game!.villages);
@@ -158,6 +159,29 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
     tx !== undefined &&
     ty !== undefined &&
     !(target && isHumanVillage(target));
+  // A battle report holds both armies, the Smithy levels they fought at and the wall it happened at, so the
+  // simulator can replay it. A scout report holds what the scouts saw: the troops inside, the wall and the
+  // buildings a catapult could aim at. A field report is a meeting in the open with no village to defend.
+  const canSimulate = !isField && (r.type !== "scout" || !!r.scout);
+  const simulate = () => {
+    if (r.type === "scout" && r.scout) {
+      openSimulator({
+        defender: r.scout.units,
+        defenderBuildings: r.scout.buildings,
+        wall: r.scout.buildings.wall,
+      });
+      return;
+    }
+    openSimulator({
+      attacker: r.attacker.units,
+      defender: r.defender.units,
+      attackerResearch: r.attacker.research,
+      defenderResearch: r.defender.research,
+      wall: r.wallBefore,
+      luck: r.luck,
+      morale: r.morale,
+    });
+  };
   const haulSum = r.haul ? r.haul.wood + r.haul.clay + r.haul.iron : 0;
 
   return (
@@ -189,6 +213,11 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             }
           >
             {t("reports.retry")}
+          </button>
+        )}
+        {canSimulate && (
+          <button className="btn" onClick={simulate}>
+            {t("sim.fromReport")}
           </button>
         )}
         {canRetry && (

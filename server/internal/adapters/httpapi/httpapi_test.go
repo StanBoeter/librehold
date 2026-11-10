@@ -736,3 +736,68 @@ func TestAdminWorldsShowTheEnd(t *testing.T) {
 		t.Fatalf("ended world %v", byID[ended])
 	}
 }
+
+func TestSimulateBattleAnswersAndChangesNothing(t *testing.T) {
+	e := newEnv(t)
+	adm := admin(t, e)
+	wid := world(t, e, adm)
+	ala := e.browser(t)
+	register(t, ala, "ala")
+	expect(t, ala.do("POST", "/api/v1/worlds/"+wid+"/join", map[string]string{}), 200, "")
+
+	before := ala.do("GET", "/api/v1/worlds/"+wid+"/state", nil)
+	body := map[string]any{
+		"attacker": map[string]any{"units": map[string]int{"sword": 500}},
+		"defender": map[string]any{"units": map[string]int{"spear": 200}, "wall": 5},
+		"luck":     0,
+		"morale":   1,
+	}
+	res := ala.do("POST", "/api/v1/worlds/"+wid+"/simulate", body)
+	expect(t, res, 200, "")
+	if res.body["outcome"] != "attackerWon" {
+		t.Fatalf("500 swords against 200 spears behind a wall: %v", res.body)
+	}
+	if res.body["attackerLosses"] == nil || res.body["defenderLosses"] == nil {
+		t.Fatalf("the result has no losses: %v", res.body)
+	}
+	if cost, ok := res.body["attackerCost"].(float64); !ok || cost <= 0 {
+		t.Fatalf("the losses were not valued: %v", res.body["attackerCost"])
+	}
+
+	after := ala.do("GET", "/api/v1/worlds/"+wid+"/state", nil)
+	if before.raw != after.raw {
+		t.Fatal("the simulator changed the world")
+	}
+}
+
+func TestSimulateBattleRefusesNonsense(t *testing.T) {
+	e := newEnv(t)
+	adm := admin(t, e)
+	wid := world(t, e, adm)
+	ala := e.browser(t)
+	register(t, ala, "ala")
+	expect(t, ala.do("POST", "/api/v1/worlds/"+wid+"/join", map[string]string{}), 200, "")
+
+	bad := []map[string]any{
+		{"attacker": map[string]any{"units": map[string]int{"sword": -5}}},
+		{"attacker": map[string]any{"units": map[string]int{"sword": 10}, "wall": -1}},
+		{"attacker": map[string]any{"units": map[string]int{"sword": 10}, "wall": 99}},
+		{"attacker": map[string]any{"units": map[string]int{"sword": 10}}, "morale": -1},
+		{"attacker": map[string]any{"units": map[string]int{"sword": 10}}, "catapultTarget": 999},
+	}
+	for i, body := range bad {
+		if r := ala.do("POST", "/api/v1/worlds/"+wid+"/simulate", body); r.status != 400 {
+			t.Fatalf("case %d was accepted: %d %s", i, r.status, r.raw)
+		}
+	}
+}
+
+func TestSimulateBattleNeedsToBeInTheWorld(t *testing.T) {
+	e := newEnv(t)
+	adm := admin(t, e)
+	wid := world(t, e, adm)
+	outsider := e.browser(t)
+	register(t, outsider, "outsider")
+	body := map[string]any{"attacker": map[string]any{"units": map[string]int{"sword": 10}}}
+	expect(t, outsider.do("POST", "/api/v1/worlds/"+wid+"/simulate", body), 403, "notMember")
+}

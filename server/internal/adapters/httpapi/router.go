@@ -64,6 +64,7 @@ func New(svc *app.Service, opts Options) http.Handler {
 	mux.HandleFunc("GET /api/v1/worlds/{wid}/players/{pid}", a.authed(a.profile))
 	mux.HandleFunc("GET /api/v1/worlds/{wid}/news", a.authed(a.news))
 	mux.HandleFunc("GET /api/v1/worlds/{wid}/farm-targets", a.authed(a.farmTargets))
+	mux.HandleFunc("POST /api/v1/worlds/{wid}/simulate", a.authed(a.simulateBattle))
 
 	mux.HandleFunc("GET /api/v1/admin/accounts", a.authed(a.accounts))
 	mux.HandleFunc("POST /api/v1/admin/accounts/{id}/password", a.authed(a.resetPassword))
