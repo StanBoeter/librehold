@@ -114,6 +114,7 @@
       "battleLosses": "Battle losses",
       "humanModifiers": "Human multipliers",
       "botModifiers": "Bot multipliers",
+      "barbarianModifiers": "Barbarian resource multiplier",
       "noFieldBattles": "No field battles",
       "sightRadius": "Sight radius (tiles)",
       "tradingEnabled": "Trading",

@@ -10,6 +10,7 @@ var DefaultWorldConfig = WorldConfig{
 	BattleLosses:           "normal",
 	HumanModifiers:         SideModifiers{1, 1, 1},
 	BotModifiers:           SideModifiers{1, 1, 1},
+	BarbarianModifiers:     SideModifiers{1, 1, 1},
 	BotCount:               100,
 	BotArrival:             "allAtOnce",
 	RampUpDays:             14,

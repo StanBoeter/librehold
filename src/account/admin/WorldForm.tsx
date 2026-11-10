@@ -1,14 +1,15 @@
 import { useT } from '../../i18n/i18n';
-import { FIELDS, MODIFIERS, type FieldSpec, type SideModifiers, type WorldConfig } from '../worldConfig';
+import { BARBARIAN_MODIFIERS, FIELDS, MODIFIERS, type FieldSpec, type SideModifiers, type WorldConfig } from '../worldConfig';
 import { NumberInput } from '../../shared/NumberInput';
 
 function Modifiers({ id, spec, value, onChange }: { id: string; spec: FieldSpec; value: SideModifiers; onChange: (v: SideModifiers) => void }) {
   const t = useT();
+  const keys = spec.key === 'barbarianModifiers' ? BARBARIAN_MODIFIERS : MODIFIERS;
   return (
     <fieldset className="field">
       <legend>{t(`admin.field.${spec.key}`)}</legend>
       <div className="row">
-        {MODIFIERS.map((k) => (
+        {keys.map((k) => (
           <span key={k} className="row">
             <label htmlFor={`${id}-${k}`}>{t(`admin.modifier.${k}`)}</label>
             <NumberInput id={`${id}-${k}`} min={spec.min} max={spec.max} step={spec.step} value={value[k]}
@@ -35,7 +36,7 @@ export function WorldForm({ idPrefix, value, onChange, mode }: {
         const id = `${idPrefix}-${spec.key}`;
         const locked = mode === 'edit' && spec.creationOnly;
         const set = (v: unknown) => onChange({ ...value, [spec.key]: v });
-        if (spec.key === 'humanModifiers' || spec.key === 'botModifiers') {
+        if (spec.key === 'humanModifiers' || spec.key === 'botModifiers' || spec.key === 'barbarianModifiers') {
           return <Modifiers key={spec.key} id={id} spec={spec} value={value[spec.key]} onChange={set} />;
         }
         if (spec.flag) {

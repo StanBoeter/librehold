@@ -17,11 +17,27 @@ describe('world settings form', () => {
     for (const key of ['worldSpeed', 'unitSpeed', 'botCount', 'rampUpDays', 'beginnerProtectionDays'] as const) {
       expect([field(key).min, field(key).max], key).toEqual([WORLD_LIMITS[key].min, WORLD_LIMITS[key].max]);
     }
-    for (const key of ['humanModifiers', 'botModifiers'] as const) {
+    for (const key of ['humanModifiers', 'botModifiers', 'barbarianModifiers'] as const) {
       expect([field(key).min, field(key).max], key).toEqual([WORLD_LIMITS.modifier.min, WORLD_LIMITS.modifier.max]);
     }
     expect(field('mapSize').choices).toEqual(WORLD_LIMITS.mapSizes.map(String));
     expect([field('sightRadius').min, field('sightRadius').max]).toEqual([1, WORLD_LIMITS.sightRadius.max]);
+  });
+
+  it('barbarians get a resource multiplier only, and it may change in a running world', () => {
+    setLocale('en');
+    let value: WorldConfig = { ...DEFAULT_CONFIG };
+    render(<WorldForm idPrefix="w" value={value} onChange={(v) => { value = v; }} mode="edit" />);
+    const label = screen.getByText('Barbarian resource multiplier');
+    const field = label.closest('fieldset')!;
+    // Barbarians only earn differently: recruitment and building have nothing to promise.
+    expect(field.querySelectorAll('input')).toHaveLength(1);
+    fireEvent.change(field.querySelector('input')!, { target: { value: '2.5' } });
+    expect(value.barbarianModifiers.resources).toBe(2.5);
+    expect(value.barbarianModifiers.recruitment).toBe(1);
+    expect(value.barbarianModifiers.building).toBe(1);
+    // A change to it is a live setting, not one fixed at creation.
+    expect(liveChanges({ ...DEFAULT_CONFIG }, value)).toEqual({ barbarianModifiers: value.barbarianModifiers });
   });
 
   it('field battles can be switched off and the sight radius set', () => {

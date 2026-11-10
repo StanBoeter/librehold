@@ -105,6 +105,34 @@ describe('display helpers give the server\'s answers', () => {
   });
 });
 
+describe('barbarian resource multiplier', () => {
+  it('scales only barbarian villages, and 0 or absent means 1', () => {
+    const g = newTestGame();
+    const v = activeVillage(g);
+    v.ownerId = null;
+    v.buildings.wood = 1;
+    const rate = (cfg: WorldConfig) => villageProductionPerHour(v, 'wood', cfg);
+    const plain = rate(g.config);
+
+    expect(rate({ ...g.config, barbarianModifiers: { resources: 2, recruitment: 1, building: 1 } })).toBeCloseTo(plain * 2, 9);
+    // A world stored before the setting existed has no field at all, and one posted as 0 must not stop production.
+    expect(rate({ ...g.config, barbarianModifiers: undefined })).toBeCloseTo(plain, 9);
+    expect(rate({ ...g.config, barbarianModifiers: { resources: 0, recruitment: 0, building: 0 } })).toBeCloseTo(plain, 9);
+  });
+
+  it('leaves human and bot villages on their own multipliers', () => {
+    const g = newTestGame();
+    const v = activeVillage(g);
+    v.buildings.wood = 1;
+    const cfg: WorldConfig = { ...g.config, barbarianModifiers: { resources: 5, recruitment: 1, building: 1 } };
+    const asHuman = villageProductionPerHour({ ...v, ownerId: HUMAN_ID }, 'wood', cfg);
+    const asBot = villageProductionPerHour({ ...v, ownerId: 'bot_1' }, 'wood', cfg);
+    const asBarbarian = villageProductionPerHour({ ...v, ownerId: null }, 'wood', cfg);
+    expect(asBarbarian).toBeCloseTo(asHuman * 5, 9);
+    expect(asBot).toBeCloseTo(asHuman, 9);
+  });
+});
+
 describe('the data files read the generated tables', () => {
   it('every table in balance.json is read by a data file', () => {
     const sources = readdirSync('src/data').filter((f) => f.endsWith('.ts')).map((f) => readFileSync(`src/data/${f}`, 'utf8')).join('\n');

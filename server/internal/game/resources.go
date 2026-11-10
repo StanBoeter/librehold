@@ -26,7 +26,7 @@ func BonusProductionMultiplier(bonus *VillageBonus, r Resource) float64 {
 func VillageProductionPerHour(v *Village, r Resource, cfg *WorldConfig) float64 {
 	fromBuilding := ProductionPerHour(v.Buildings[MineOf(r)])
 	rate := (ResourceBalance.BaseProductionPerHour + fromBuilding) * BonusProductionMultiplier(v.Bonus, r)
-	return rate * cfg.WorldSpeed * sideModifiers(cfg, v.OwnerID).Resources
+	return rate * cfg.WorldSpeed * ModifiersOfVillage(cfg, v).Resources
 }
 
 func VillageStorageCapacity(v *Village) float64 {

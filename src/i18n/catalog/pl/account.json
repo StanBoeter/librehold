@@ -114,6 +114,7 @@
       "battleLosses": "Straty w bitwach",
       "humanModifiers": "Mnożniki ludzi",
       "botModifiers": "Mnożniki botów",
+      "barbarianModifiers": "Mnożnik surowców barbarzyńców",
       "noFieldBattles": "Bez bitew w polu",
       "sightRadius": "Zasięg wzroku (pola)",
       "tradingEnabled": "Handel",
