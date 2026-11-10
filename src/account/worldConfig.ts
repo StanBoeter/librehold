@@ -3,6 +3,9 @@ import { DEFAULT_WORLD_CONFIG, WORLD_LIMITS } from '../data/world.config';
 /** World settings as the server stores them; a copy of the game's type so this site needs no game code. */
 export interface SideModifiers { resources: number; recruitment: number; building: number }
 
+/** Barbarian villages only slow down or speed up their resources, so this side has nothing else to set. */
+export interface BarbarianModifiers extends SideModifiers {}
+
 export interface WorldConfig {
   worldSpeed: number;
   unitSpeed: number;
@@ -11,6 +14,7 @@ export interface WorldConfig {
   battleLosses: 'normal' | 'reduced';
   humanModifiers: SideModifiers;
   botModifiers: SideModifiers;
+  barbarianModifiers: BarbarianModifiers;
   botCount: number;
   botArrival: 'allAtOnce' | 'rampUp';
   rampUpDays: number;
@@ -58,6 +62,9 @@ export const FIELDS: FieldSpec[] = [
   { key: 'sightRadius', creationOnly: true, min: 1, max: L.sightRadius.max, step: 1 },
   { key: 'humanModifiers', creationOnly: false, min: L.modifier.min, max: L.modifier.max, step: 0.05 },
   { key: 'botModifiers', creationOnly: false, min: L.modifier.min, max: L.modifier.max, step: 0.05 },
+  { key: 'barbarianModifiers', creationOnly: false, min: L.modifier.min, max: L.modifier.max, step: 0.05 },
 ];
 
+/** The multiplier rows of a side; a barbarian village only scales the resources it earns. */
 export const MODIFIERS: (keyof SideModifiers)[] = ['resources', 'recruitment', 'building'];
+export const BARBARIAN_MODIFIERS: (keyof SideModifiers)[] = ['resources'];

@@ -3938,6 +3938,11 @@
     "commands": [],
     "config": {
       "barbarianDensity": "normal",
+      "barbarianModifiers": {
+        "building": 1,
+        "recruitment": 1,
+        "resources": 1
+      },
       "battleLosses": "normal",
       "beginnerProtectionDays": 7,
       "botArrival": "allAtOnce",

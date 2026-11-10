@@ -332,6 +332,12 @@ export interface SideModifiers {
   building: number;
 }
 
+/**
+ * Barbarian villages scale their resources only; the other two keep the type's shape and stay at 1. Worlds made
+ * before the setting existed carry nothing here, which reads as 1 (see `barbarianModifiersOf`).
+ */
+export type BarbarianModifiers = SideModifiers;
+
 export type BarbarianDensity = 'sparse' | 'normal' | 'dense';
 export type BattleLossMode = 'normal' | 'reduced';
 
@@ -343,6 +349,8 @@ export interface WorldConfig {
   battleLosses: BattleLossMode;
   humanModifiers: SideModifiers;
   botModifiers: SideModifiers;
+  /** How fast barbarian villages earn resources; absent or 0 means 1. */
+  barbarianModifiers?: BarbarianModifiers;
   /** Number of bot players in the world (fixed at creation). */
   botCount: number;
   /** Bots on the map from the start, or joining gradually over `rampUpDays`. */

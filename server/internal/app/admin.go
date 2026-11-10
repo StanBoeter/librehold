@@ -70,6 +70,10 @@ func ClampWorldConfig(cfg game.WorldConfig) game.WorldConfig {
 	}
 	cfg.HumanModifiers = clampModifiers(cfg.HumanModifiers)
 	cfg.BotModifiers = clampModifiers(cfg.BotModifiers)
+	// A request that leaves a barbarian multiplier out keeps it at 1 rather than dropping it to 0.
+	barb := game.BarbarianModifiersOf(&cfg)
+	barb.Resources = clamp(barb.Resources, l.Modifier)
+	cfg.BarbarianModifiers = barb
 	cfg.BotCount = int(clamp(float64(cfg.BotCount), l.BotCount))
 	cfg.RampUpDays = clamp(cfg.RampUpDays, l.RampUpDays)
 	cfg.BeginnerProtectionDays = clamp(cfg.BeginnerProtectionDays, l.BeginnerProtectionDays)
@@ -137,7 +141,7 @@ func (s *Service) Worlds(ctx context.Context, actor *Account) ([]WorldSummary, e
 // WorldSettingsPatch is a partial WorldConfig by JSON field name.
 type WorldSettingsPatch map[string]json.RawMessage
 
-var changeableSettings = []string{"worldSpeed", "unitSpeed", "humanModifiers", "botModifiers", "battleLosses",
+var changeableSettings = []string{"worldSpeed", "unitSpeed", "humanModifiers", "botModifiers", "barbarianModifiers", "battleLosses",
 	"beginnerProtectionDays", "lastVillage", "difficulty", "botStance", "noFieldBattles"}
 
 // UpdateWorldSettings changes the settings that may change in a running world. Every stored village is

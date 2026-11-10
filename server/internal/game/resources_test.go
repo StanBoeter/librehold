@@ -250,6 +250,82 @@ func TestModifiers(t *testing.T) {
 			t.Fatal("ModifiersFor sides")
 		}
 	})
+
+	t.Run("barbarian resources scale on their own, leaving humans and bots alone", func(t *testing.T) {
+		cfg := testConfig()
+		cfg.HumanModifiers.Resources = 3
+		cfg.BarbarianModifiers.Resources = 2
+		w := gametest.NewMemWorld(5, cfg, 0)
+		human := game.CreateVillage(10, 10, "", "h1", 0)
+		bot := game.CreateVillage(12, 10, "", "bot_test", 0)
+		barb := game.CreateVillage(14, 10, "", "", 0)
+		for _, v := range []*game.Village{human, bot, barb} {
+			v.Buildings[game.BWood] = 1
+			w.PutVillage(v)
+		}
+		ph := game.VillageProductionPerHour(human, game.Wood, w.Config())
+		pb := game.VillageProductionPerHour(bot, game.Wood, w.Config())
+		pz := game.VillageProductionPerHour(barb, game.Wood, w.Config())
+		if ph != 3*pb || pz != 2*pb {
+			t.Fatalf("human %v bot %v barbarian %v", ph, pb, pz)
+		}
+		if game.ModifiersFor(w, barb).Resources != 2 || game.ModifiersFor(w, bot).Resources != 1 {
+			t.Fatal("ModifiersFor barbarian")
+		}
+	})
+
+	t.Run("a world made before the setting produces barbarian resources unchanged", func(t *testing.T) {
+		// Stored configs have no barbarianModifiers at all, which decodes to all zeroes; that must mean 1, not 0.
+		cfg := testConfig()
+		cfg.BarbarianModifiers = game.SideModifiers{}
+		w := gametest.NewMemWorld(5, cfg, 0)
+		barb := game.CreateVillage(14, 10, "", "", 0)
+		barb.Buildings[game.BWood] = 1
+		w.PutVillage(barb)
+		if got := game.ModifiersFor(w, barb).Resources; got != 1 {
+			t.Fatalf("barbarian resources multiplier = %v, want 1", got)
+		}
+		if game.VillageProductionPerHour(barb, game.Wood, w.Config()) <= 0 {
+			t.Fatal("a barbarian village must still produce")
+		}
+	})
+
+	t.Run("the multiplier changes what a real barbarian village actually accrues", func(t *testing.T) {
+		// Not just the rate function: materialise a barbarian with EnsureVillage the way an attack does, loot it
+		// empty, then settle it with Touch over real elapsed time.
+		accrued := func(mult float64) float64 {
+			cfg := testConfig()
+			cfg.WorldSpeed = 1
+			cfg.BarbarianModifiers.Resources = mult
+			w := gametest.NewMemWorld(7, cfg, 0)
+			var v *game.Village
+			for y := 0; y < cfg.MapSize && v == nil; y++ {
+				for x := 0; x < cfg.MapSize && v == nil; x++ {
+					v = game.EnsureVillage(w, x, y)
+				}
+			}
+			if v == nil {
+				t.Fatal("no barbarian village on this map")
+			}
+			// Looted empty, so the storage cap cannot hide the difference.
+			v.Resources = game.Resources{}
+			v.ResourcesUpdatedAt = w.Now()
+			w.PutVillage(v)
+			w.SetNow(w.Now() + game.MsPerHour)
+			game.Touch(w, v)
+			return v.Resources.Wood
+		}
+		half, plain, boosted := accrued(0.5), accrued(1), accrued(2.5)
+		if plain <= 0 {
+			t.Fatalf("a barbarian village accrued %v wood in an hour", plain)
+		}
+		if math.Abs(half-plain/2) > 0.001 {
+			t.Errorf("half the multiplier accrued %v, want %v", half, plain/2)
+		}
+		if math.Abs(boosted-plain*2.5) > 0.001 {
+			t.Errorf("2.5x the multiplier accrued %v, want %v", boosted, plain*2.5)
+		}
+	})
 }
 
 func TestTouchAccruesAtWorldNow(t *testing.T) {

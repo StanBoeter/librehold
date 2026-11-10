@@ -377,6 +377,10 @@ type WorldConfig struct {
 	// VillageTotal is computed when the world is created: how many villages the map can hold.
 	VillageTotal int `json:"villageTotal,omitempty"`
 
+	// BarbarianModifiers scales how fast barbarian villages produce resources; only Resources is used. Worlds
+	// made before it existed store nothing, which reads as 0 and means 1 (see BarbarianModifiersOf).
+	BarbarianModifiers SideModifiers `json:"barbarianModifiers"`
+
 	// Field battles (meeting armies on the road) are on unless switched off.
 	NoFieldBattles bool `json:"noFieldBattles,omitempty"`
 	// SightRadius is how close, in tiles, a passing army must come to a village to be seen; 0 means 1.

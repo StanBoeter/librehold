@@ -151,6 +151,35 @@ func TestFixedSettingsRejected(t *testing.T) {
 	}
 }
 
+func TestBarbarianModifiersAreChangeableAndClamped(t *testing.T) {
+	f := newAdminFixture(t)
+	ctx := context.Background()
+	id := f.world(t)
+	set := func(resources string) error {
+		return f.svc.UpdateWorldSettings(ctx, admin, id, app.WorldSettingsPatch{
+			"barbarianModifiers": json.RawMessage(`{"resources":` + resources + `}`)})
+	}
+	// It may change in a running world.
+	if err := set("2.5"); err != nil {
+		t.Fatal(err)
+	}
+	if row, _ := f.worlds.Get(ctx, id); row.Config.BarbarianModifiers.Resources != 2.5 {
+		t.Fatalf("barbarian resources %v", row.Config.BarbarianModifiers.Resources)
+	}
+	// Out-of-range values are clamped like the other multipliers, not rejected.
+	if err := set("999"); err != nil {
+		t.Fatal(err)
+	}
+	if row, _ := f.worlds.Get(ctx, id); row.Config.BarbarianModifiers.Resources != 10 {
+		t.Fatalf("not clamped: %v", row.Config.BarbarianModifiers.Resources)
+	}
+	// A patch naming only the resource keeps the other parts at 1 rather than dropping them to 0.
+	if row, _ := f.worlds.Get(ctx, id); row.Config.BarbarianModifiers.Recruitment != 1 ||
+		row.Config.BarbarianModifiers.Building != 1 {
+		t.Fatalf("partial patch zeroed the rest: %+v", row.Config.BarbarianModifiers)
+	}
+}
+
 func TestSpeedChangeSettlesAndKeepsTimers(t *testing.T) {
 	f := newAdminFixture(t)
 	ctx := context.Background()
