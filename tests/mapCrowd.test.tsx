@@ -113,17 +113,17 @@ describe('marching crowds', () => {
     expect(figures).toBe(6 * 100);
   });
 
-  it('past the budget a crowd still left over keeps its icon', () => {
+  it('past the budget the crowds shrink together instead of turning back into icons', () => {
     setup((g, home) => {
       const bot = makeBotVillage(g);
       for (let i = 0; i < 20; i++) addCmd(g, { id: `own${i}`, type: 'attack', originId: home.id, targetId: bot.id, units: { axe: 5000 } });
     });
     const { container } = renderZoomed();
-    // Every crowd is cut to its floor, so the last ones still cannot be drawn and stay as markers.
     expect(Number(crowd(container)!.getAttribute('data-figures'))).toBeLessThanOrEqual(600);
     const markers = [...container.querySelectorAll('[data-army] [data-marker]')];
-    expect(markers.some((m) => !m.hasAttribute('data-in-crowd'))).toBe(true);
-    expect(markers.some((m) => m.hasAttribute('data-in-crowd'))).toBe(true);
+    expect(markers).toHaveLength(20);
+    // Every army still marches, each with a smaller crowd, rather than the ones past the budget staying as markers.
+    expect(markers.every((m) => m.hasAttribute('data-in-crowd'))).toBe(true);
   });
 
   it('an own crowd shows the exact count of each unit type beside it, a foreign one shows none', () => {
