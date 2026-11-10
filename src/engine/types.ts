@@ -207,6 +207,8 @@ export type ReportType =
 export interface ReportSide {
   units: Partial<Record<UnitId, number>>;
   losses: Partial<Record<UnitId, number>>;
+  /** Smithy level per unit the side fought at; absent on a report written before levels were recorded. */
+  research?: Partial<Record<UnitId, number>>;
 }
 
 export interface ScoutIntel {

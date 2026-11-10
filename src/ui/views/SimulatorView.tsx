@@ -1,6 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { BUILDING_IDS, UNIT_IDS, type BuildingId, type UnitId } from '../../engine/types';
+import { BUILDING_IDS, UNIT_IDS, type BuildingId, type UnitId, type Village } from '../../engine/types';
 import { COMBAT_BALANCE } from '../../data/units.data';
+import { RESEARCH_BALANCE } from '../../data/research.data';
+import { effectiveResearchLevel } from '../../engine/units';
 import { buildingName, unitName } from '../../i18n/names';
 import { t, useT } from '../../i18n/i18n';
 import { selectActiveVillage, useGameStore } from '../../state/gameStore';
@@ -12,6 +14,26 @@ import { UnitIcon } from '../components/UnitIcon';
 import { PixelIcon } from '../pixelIcons';
 
 const ZERO = (): Record<UnitId, number> => fullUnits({});
+
+/** The levels the Smithy can reach, as the choices in a level field. */
+const LEVELS = Array.from({ length: RESEARCH_BALANCE.maxLevel }, (_, i) => i + 1);
+
+/** A fresh simulator starts at level 1: levels below that are the "not unlocked" floor and buy nothing. */
+const ONE = (): Record<UnitId, number> => Object.fromEntries(UNIT_IDS.map((u) => [u, 1])) as Record<UnitId, number>;
+
+/** A level record from anything partial, clamped to the Smithy's floor so a missing level reads as level 1, not 0. */
+function levelsOf(levels: Partial<Record<UnitId, number>> | undefined): Record<UnitId, number> {
+  const full = fullUnits(levels ?? {});
+  return Object.fromEntries(UNIT_IDS.map((u) => [u, Math.max(1, full[u])])) as Record<UnitId, number>;
+}
+
+/**
+ * The village's own levels. A unit that is still locked reads as level 1: the Smithy's floor, which multiplies it by
+ * nothing either way, so the field shows the honest minimum instead of an option the list does not hold.
+ */
+function villageLevels(v: Village): Record<UnitId, number> {
+  return Object.fromEntries(UNIT_IDS.map((u) => [u, Math.max(1, effectiveResearchLevel(v, u))])) as Record<UnitId, number>;
+}
 
 /** One simulation: what was asked and what came back, held together so the answer never mixes with later edits. */
 interface Run {
@@ -40,28 +62,66 @@ function ArmyLine({ units }: { units: Partial<Record<UnitId, number>> }) {
 }
 
 /**
+ * One unit's Smithy level. The noble is bought, not researched, so it has no level and gets an empty cell that keeps
+ * the column under its heading.
+ */
+function LevelField({ side, unit, value, onSet }: {
+  side: 'attacker' | 'defender';
+  unit: UnitId;
+  value: number;
+  onSet: (n: number) => void;
+}) {
+  useT();
+  if (unit === 'noble') return <span />;
+  return (
+    <label htmlFor={`sim-${side === 'attacker' ? 'atk' : 'def'}-lvl-${unit}`} className="flex items-center">
+      <span className="sr-only">{t(`sim.${side}`)} {unitName(unit)} {t('sim.level')}</span>
+      <select
+        id={`sim-${side === 'attacker' ? 'atk' : 'def'}-lvl-${unit}`}
+        className="field w-14"
+        value={value}
+        onChange={(e) => onSet(Number(e.target.value))}
+      >
+        {LEVELS.map((n) => <option key={n} value={n}>{n}</option>)}
+      </select>
+    </label>
+  );
+}
+
+/**
  * Both armies at once: one row per unit, the attacker's field against the defender's, so the two sides of a fight read
  * across a single line. The unit is an icon with its name kept for screen readers — twelve names twice over would be
- * the widest thing on the screen and say nothing the icon does not.
+ * the widest thing on the screen and say nothing the icon does not. Each army carries its own Smithy level per unit,
+ * because the levels are what a siege turns on and they are per village.
  */
-function ArmyFields({ attacker, defender, onSet, hideDefender }: {
+function ArmyFields({ attacker, defender, attackerResearch, defenderResearch, onSet, onSetLevel, hideDefender }: {
   attacker: Record<UnitId, number>;
   defender: Record<UnitId, number>;
+  attackerResearch: Record<UnitId, number>;
+  defenderResearch: Record<UnitId, number>;
   onSet: (side: 'attacker' | 'defender', u: UnitId, n: number) => void;
+  onSetLevel: (side: 'attacker' | 'defender', u: UnitId, n: number) => void;
   /** The defender's column is gone when the sim is used to size one army on its own. */
   hideDefender?: boolean;
 }) {
   useT();
+  const cols = hideDefender ? 'grid-cols-[auto_auto_auto]' : 'grid-cols-[auto_auto_auto_auto_auto]';
   return (
-    <div className="grid grid-cols-[auto_auto_auto] gap-x-2 gap-y-1 items-center w-fit">
-      {/* The heading is the first row of the same grid as the fields, so its labels sit over the columns they name.
+    <div className={`grid ${cols} gap-x-2 gap-y-1 items-center w-fit`}>
+      {/* The heading is the first rows of the same grid as the fields, so its labels sit over the columns they name.
           As a grid of its own it could not: an empty cell collapses to 0 px while the icon column does not, and the
-          two headings drift right of the fields under them. */}
+          two headings drift right of the fields under them. Each side spans its two columns — the troops and the
+          level that multiplies them. */}
       <span />
-      <span className="text-center text-[12px] font-semibold">{t('sim.attacker')}</span>
-      <span className="text-center text-[12px] font-semibold">{t('sim.defender')}</span>
-      {/* One grid item per cell: the icon, then the attacker's field, then the defender's. A wrapper here would
-          emit two items per unit and the columns would drift a cell per row. */}
+      <span className="text-center text-[12px] font-semibold col-span-2">{t('sim.attacker')}</span>
+      {!hideDefender && <span className="text-center text-[12px] font-semibold col-span-2">{t('sim.defender')}</span>}
+      <span />
+      <span className="text-center text-[11px] text-muted">{t('sim.troops')}</span>
+      <span className="text-center text-[11px] text-muted">{t('sim.level')}</span>
+      {!hideDefender && <span className="text-center text-[11px] text-muted">{t('sim.troops')}</span>}
+      {!hideDefender && <span className="text-center text-[11px] text-muted">{t('sim.level')}</span>}
+      {/* One grid item per cell: the icon, then the attacker's troops and level, then the defender's. A wrapper here
+          would emit more items per unit and the columns would drift a cell per row. */}
       {UNIT_IDS.map((u) => (
         <Fragment key={u}>
           <span className="flex items-center justify-center" title={unitName(u)}>
@@ -78,18 +138,22 @@ function ArmyFields({ attacker, defender, onSet, hideDefender }: {
               step={1}
             />
           </label>
+          <LevelField side="attacker" unit={u} value={attackerResearch[u]} onSet={(n) => onSetLevel('attacker', u, n)} />
           {!hideDefender && (
-            <label htmlFor={`sim-def-${u}`} className="flex items-center">
-              <span className="sr-only">{t('sim.defender')} {unitName(u)}</span>
-              <NumberInput
-                id={`sim-def-${u}`}
-                className="field w-16 text-right"
-                value={defender[u]}
-                onValue={(n) => onSet('defender', u, n)}
-                min={0}
-                step={1}
-              />
-            </label>
+            <>
+              <label htmlFor={`sim-def-${u}`} className="flex items-center">
+                <span className="sr-only">{t('sim.defender')} {unitName(u)}</span>
+                <NumberInput
+                  id={`sim-def-${u}`}
+                  className="field w-16 text-right"
+                  value={defender[u]}
+                  onValue={(n) => onSet('defender', u, n)}
+                  min={0}
+                  step={1}
+                />
+              </label>
+              <LevelField side="defender" unit={u} value={defenderResearch[u]} onSet={(n) => onSetLevel('defender', u, n)} />
+            </>
           )}
         </Fragment>
       ))}
@@ -109,8 +173,9 @@ export function SimulatorTab() {
 
   const [attacker, setAttacker] = useState<Record<UnitId, number>>(ZERO);
   const [defender, setDefender] = useState<Record<UnitId, number>>(ZERO);
-  const [attackerResearch, setAttackerResearch] = useState<Record<UnitId, number>>(ZERO);
-  const [defenderResearch, setDefenderResearch] = useState<Record<UnitId, number>>(ZERO);
+  // Levels start at 1: the floor of the Smithy, where every unit already is before anything is researched.
+  const [attackerResearch, setAttackerResearch] = useState<Record<UnitId, number>>(ONE);
+  const [defenderResearch, setDefenderResearch] = useState<Record<UnitId, number>>(ONE);
   const [wall, setWall] = useState(0);
   const [luck, setLuck] = useState(0);
   const [morale, setMorale] = useState(1);
@@ -147,12 +212,12 @@ export function SimulatorTab() {
     }
   }, [worldId, request]);
 
-  // An empty battle is not worth asking about, so the fields start with the village's own troops filled in when the
-  // tab is opened from there.
+  // An empty battle is not worth asking about, so the fields start with the village's own troops and Smithy levels
+  // filled in when the tab is opened from there.
   const fillFromVillage = useCallback(() => {
     if (!village) return;
     setAttacker(fullUnits(village.units));
-    setAttackerResearch(fullUnits(village.research ?? {}));
+    setAttackerResearch(villageLevels(village));
   }, [village]);
 
   // A prefill from the Map or a report arrives once, then is cleared so the tab keeps the player's own edits.
@@ -161,6 +226,8 @@ export function SimulatorTab() {
     if (!p) return;
     setAttacker(fullUnits(p.attacker ?? {}));
     setDefender(fullUnits(p.defender ?? {}));
+    if (p.attackerResearch) setAttackerResearch(levelsOf(p.attackerResearch));
+    if (p.defenderResearch) setDefenderResearch(levelsOf(p.defenderResearch));
     if (p.wall !== undefined) setWall(p.wall);
     if (p.hideLevel !== undefined) setHideLevel(p.hideLevel);
     if (p.morale !== undefined) setMorale(p.morale);
@@ -177,7 +244,17 @@ export function SimulatorTab() {
         <button type="button" className="btn" onClick={fillFromVillage} disabled={!village}>
           {t('sim.fillVillage')}
         </button>
-        <button type="button" className="btn" onClick={() => { setAttacker(ZERO()); setDefender(ZERO()); setLastRun(null); }}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            setAttacker(ZERO());
+            setDefender(ZERO());
+            setAttackerResearch(ONE());
+            setDefenderResearch(ONE());
+            setLastRun(null);
+          }}
+        >
           {t('sim.clear')}
         </button>
       </div>
@@ -189,7 +266,10 @@ export function SimulatorTab() {
           <ArmyFields
             attacker={attacker}
             defender={defender}
+            attackerResearch={attackerResearch}
+            defenderResearch={defenderResearch}
             onSet={(side, u, n) => (side === 'attacker' ? setAttacker : setDefender)((army) => ({ ...army, [u]: n }))}
+            onSetLevel={(side, u, n) => (side === 'attacker' ? setAttackerResearch : setDefenderResearch)((lv) => ({ ...lv, [u]: n }))}
           />
         </div>
 

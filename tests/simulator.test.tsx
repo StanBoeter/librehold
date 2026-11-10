@@ -89,6 +89,45 @@ describe('the battle simulator', () => {
     });
   });
 
+  it('fills the attacker\'s Smithy levels in from the same village', async () => {
+    const { paths } = await boot({ 'POST /api/v1/worlds/1/simulate': () => ({ status: 200, body: ANSWER }) }, (g) => {
+      const v = g.villages[g.activeVillageId]!;
+      v.units = { ...v.units, sword: 77, axe: 10 };
+      // Level 3 in the Smithy, and a locked unit beside it: the levels are per village and per unit.
+      v.research = { ...v.research, sword: 3, axe: 0 };
+    });
+    render(<SimulatorTab />);
+    screen.getByRole('button', { name: 'Fill in my troops' }).click();
+    await waitFor(() => {
+      expect((document.getElementById('sim-atk-lvl-sword') as HTMLSelectElement).value).toBe('3');
+    });
+    // The defender is somebody else's village: nothing about the player's own levels belongs there.
+    expect((document.getElementById('sim-def-lvl-sword') as HTMLSelectElement).value).toBe('1');
+
+    screen.getByRole('button', { name: 'Simulate' }).click();
+    await waitFor(() => expect(paths.some((p) => p.includes('/simulate'))).toBe(true));
+    const sent = JSON.parse(String((fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls
+      .find(([url]) => url.includes('/simulate'))![1].body)) as {
+        attacker: { research: Record<string, number> }; defender: { research: Record<string, number> };
+      };
+    expect(sent.attacker.research.sword).toBe(3);
+    // A unit the village never unlocked is sent as level 1 — the Smithy's floor — never as the locked 0.
+    expect(sent.attacker.research.axe).toBe(1);
+    expect(sent.defender.research.sword).toBe(1);
+  });
+
+  it('fills the defender in from the report as level 3 as well', async () => {
+    await boot();
+    useUiStore.getState().openSimulator({
+      attacker: { sword: 400 }, defender: { spear: 200 }, attackerResearch: { sword: 2 }, defenderResearch: { spear: 3 }, wall: 6,
+    });
+    render(<SimulatorTab />);
+    await waitFor(() => {
+      expect((document.getElementById('sim-atk-lvl-sword') as HTMLSelectElement).value).toBe('2');
+    });
+    expect((document.getElementById('sim-def-lvl-spear') as HTMLSelectElement).value).toBe('3');
+  });
+
   it('takes a battle handed to it from a report, once', async () => {
     await boot();
     useUiStore.getState().openSimulator({ attacker: { axe: 300 }, defender: { spear: 150 }, wall: 7 });
@@ -134,7 +173,8 @@ describe('the button on a battle report', () => {
         id: 'r1', time: g.now, type: 'attack', originId: home.id, targetId: 'v:9:9',
         origin: { id: home.id, name: 'Home', x: home.x, y: home.y, ownerId: home.ownerId ?? undefined },
         target: { id: 'v:9:9', name: 'Barbarians', x: 9, y: 9 },
-        attacker: { units: { axe: 40 }, losses: { axe: 5 } }, defender: { units: { spear: 20 }, losses: { spear: 20 } },
+        attacker: { units: { axe: 40 }, losses: { axe: 5 }, research: { axe: 3 } },
+        defender: { units: { spear: 20 }, losses: { spear: 20 }, research: { spear: 2 } },
         luck: 0.1, morale: 1, wallBefore: 6, wallAfter: 4, outcome: 'attackerWon', read: false,
       });
     });
@@ -145,6 +185,9 @@ describe('the button on a battle report', () => {
     const handed = useUiStore.getState().simPrefill!;
     expect(handed.attacker).toEqual({ axe: 40 });
     expect(handed.defender).toEqual({ spear: 20 });
+    // The levels the battle was really fought at, from both sides: replaying it at level 1 is a different battle.
+    expect(handed.attackerResearch).toEqual({ axe: 3 });
+    expect(handed.defenderResearch).toEqual({ spear: 2 });
     expect(handed.wall).toBe(6);
     expect(handed.luck).toBeCloseTo(0.1);
     expect(useUiStore.getState().view).toBe('rally');
@@ -170,24 +213,31 @@ describe('the army fields', () => {
     expect(screen.getByLabelText('Defender Swordsman')).toBeTruthy();
   });
 
-  it('puts each unit on one row: its icon, then the attacker, then the defender', async () => {
+  it('puts each unit on one row: its icon, then the attacker\'s troops and level, then the defender\'s', async () => {
     await boot();
     render(<SimulatorTab />);
     // happy-dom reports every rect as 0x0, so measuring positions proves nothing here. What carries the layout is
-    // the grid order: every unit must own three consecutive cells. A wrapper element inside the grid emits two
-    // items per unit instead of three and the columns drift a cell per row — which is exactly what went wrong.
+    // the grid order: every unit must own five consecutive cells. A wrapper element inside the grid emits a
+    // different number of items per unit and the columns drift a cell per row — which is exactly what went wrong.
     const grid = document.getElementById('sim-atk-sword')!.closest('.grid')!;
-    // Three header cells, then three per unit.
-    expect(grid.children.length).toBe(39);
-    // The headings are the first row of the same grid, so they sit over the columns they name. In a grid of their
-    // own they could not: an empty cell collapses to 0 px while the icon column does not, and both headings drifted
-    // right of the fields under them.
+    // Eight heading cells, then five per unit.
+    expect(grid.children.length).toBe(68);
+    // The headings are the first rows of the same grid, so they sit over the columns they name. In a grid of their
+    // own they could not: an empty cell collapses to 0 px while the icon column does not, and the headings drifted
+    // right of the fields under them. Each side's name spans the troops-and-level pair it heads.
     expect(grid.children[0]!.textContent).toBe('');
     expect(grid.children[1]!.textContent).toBe('Attacker');
     expect(grid.children[2]!.textContent).toBe('Defender');
-    // Column two holds the attacker's fields, column three the defender's — the headings are in those same columns.
-    expect(grid.children[4]!.querySelector('input')!.id).toBe('sim-atk-spear');
-    expect(grid.children[5]!.querySelector('input')!.id).toBe('sim-def-spear');
+    expect(grid.children[3]!.textContent).toBe('');
+    expect(grid.children[4]!.textContent).toBe('Troops');
+    expect(grid.children[5]!.textContent).toBe('Level');
+    expect(grid.children[6]!.textContent).toBe('Troops');
+    expect(grid.children[7]!.textContent).toBe('Level');
+    // The headings name four columns and the cells under them are those four, in that order.
+    expect(grid.children[9]!.querySelector('input')!.id).toBe('sim-atk-spear');
+    expect(grid.children[10]!.querySelector('select')!.id).toBe('sim-atk-lvl-spear');
+    expect(grid.children[11]!.querySelector('input')!.id).toBe('sim-def-spear');
+    expect(grid.children[12]!.querySelector('select')!.id).toBe('sim-def-lvl-spear');
     const rows: [string, string][] = [
       ['Spearman', 'spear'], ['Swordsman', 'sword'], ['Axeman', 'axe'], ['Archer', 'archer'],
       ['Scout', 'scout'], ['Light cavalryman', 'lightCav'], ['Mounted archer', 'mountedArcher'],
@@ -195,13 +245,52 @@ describe('the army fields', () => {
       ['Knight', 'paladin'], ['Hetman', 'noble'],
     ];
     rows.forEach(([name, unit], i) => {
-      const icon = grid.children[i * 3 + 3]!;
-      const atk = grid.children[i * 3 + 4]!;
-      const def = grid.children[i * 3 + 5]!;
-      expect(icon.querySelector('img')!.getAttribute('alt')).toBe(name);
-      expect(atk.querySelector('input')!.id).toBe(`sim-atk-${unit}`);
-      expect(def.querySelector('input')!.id).toBe(`sim-def-${unit}`);
+      const at = (n: number) => grid.children[i * 5 + 8 + n]!;
+      expect(at(0).querySelector('img')!.getAttribute('alt')).toBe(name);
+      expect(at(1).querySelector('input')!.id).toBe(`sim-atk-${unit}`);
+      expect(at(3).querySelector('input')!.id).toBe(`sim-def-${unit}`);
+      // A noble is bought, not researched, so its level cells are empty but still hold the column open.
+      const levelId = (side: 'atk' | 'def') => `sim-${side}-lvl-${unit}`;
+      if (unit === 'noble') {
+        expect(at(2).querySelector('select')).toBeNull();
+        expect(at(4).querySelector('select')).toBeNull();
+      } else {
+        expect(at(2).querySelector('select')!.id).toBe(levelId('atk'));
+        expect(at(4).querySelector('select')!.id).toBe(levelId('def'));
+      }
     });
+  });
+
+  it('offers the Smithy\'s levels, not the locked level 0', async () => {
+    await boot();
+    render(<SimulatorTab />);
+    for (const side of ['atk', 'def']) {
+      const select = document.getElementById(`sim-${side}-lvl-sword`) as HTMLSelectElement;
+      // Level 0 is "not unlocked" and buys nothing: a field offering it would let a player pick a state no village
+      // has. (The browser has no settled value to read here either — a controlled select whose value is not in its
+      // list falls back to the first option — so what is checked is the list itself, and the send below.)
+      expect([...select.options].map((o) => o.value)).toEqual(['1', '2', '3']);
+      expect([...select.options].map((o) => o.textContent)).toEqual(['1', '2', '3']);
+    }
+  });
+
+  it('sends the levels of both armies with the battle, so they change the answer', async () => {
+    const { paths } = await boot({ 'POST /api/v1/worlds/1/simulate': () => ({ status: 200, body: ANSWER }) });
+    render(<SimulatorTab />);
+    fireInput(atk('sword'), '500');
+    fireInput(document.getElementById('sim-def-spear')!, '200');
+    fireEvent.change(document.getElementById('sim-atk-lvl-sword')!, { target: { value: '3' } });
+    fireEvent.change(document.getElementById('sim-def-lvl-spear')!, { target: { value: '2' } });
+    screen.getByRole('button', { name: 'Simulate' }).click();
+    await waitFor(() => expect(paths.some((p) => p.includes('/simulate'))).toBe(true));
+    const sent = JSON.parse(String((fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls
+      .find(([url]) => url.includes('/simulate'))![1].body)) as {
+        attacker: { research: Record<string, number> }; defender: { research: Record<string, number> };
+      };
+    expect(sent.attacker.research.sword).toBe(3);
+    expect(sent.defender.research.spear).toBe(2);
+    // Every unit is named, so nothing falls back to a level the server would read as locked.
+    expect(sent.attacker.research.spear).toBe(1);
   });
 });
 

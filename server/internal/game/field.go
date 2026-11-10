@@ -237,9 +237,11 @@ func onFieldEvent(w World, id string) error {
 	rng := Mulberry32(HiddenSeed(w, "field", id, target.ID))
 	luck := -CombatBalance.LuckRange + rng()*2*CombatBalance.LuckRange
 	before := target.Units
+	// The research the battle is fought with, kept for the report: the simulator replays a report at these levels.
+	attackerResearch, defenderResearch := commandResearch(w, c), commandResearch(w, target)
 	in := BattleInput{
-		Attacker: BattleSide{Units: c.Units, Research: commandResearch(w, c)},
-		Defender: BattleDefender{BattleSide: BattleSide{Units: before, Research: commandResearch(w, target)}},
+		Attacker: BattleSide{Units: c.Units, Research: attackerResearch},
+		Defender: BattleDefender{BattleSide: BattleSide{Units: before, Research: defenderResearch}},
 		Luck:     luck, Morale: CombatBalance.MoraleVsBarbarian, Rng: rng, LossMode: w.Config().BattleLosses,
 	}
 	var result BattleResult
@@ -250,7 +252,7 @@ func onFieldEvent(w World, id string) error {
 	}
 	r := Report{Time: w.Now(), Type: fieldReportType(result.Kind == "scout"), OriginID: homeID, TargetID: targetHome,
 		Origin: armyVillage(w, c, homeID), Target: armyVillage(w, target, targetHome),
-		Attacker: ReportSide{Units: c.Units, Losses: result.AttackerLosses},
+		Attacker: ReportSide{Units: c.Units, Losses: result.AttackerLosses, Research: &attackerResearch},
 		Luck:     result.Luck, Morale: result.Morale, Outcome: result.Outcome, Field: field}
 	var captured *Resources
 	if result.Kind == "scout" {
@@ -259,7 +261,7 @@ func onFieldEvent(w World, id string) error {
 			r.Scout = &ScoutIntel{Units: before}
 		}
 	} else {
-		r.Defender = ReportSide{Units: before, Losses: result.DefenderLosses}
+		r.Defender = ReportSide{Units: before, Losses: result.DefenderLosses, Research: &defenderResearch}
 		survivors := result.DefenderSurvivors
 		if target.Haul != nil {
 			keep, take := SplitLoot(*target.Haul, haulCapacity(survivors), haulCapacity(result.AttackerSurvivors))
