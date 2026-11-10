@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CROWD, armiesOnMap, armyPosition, crowdOf, figuresFor, groundAt, type Ground, type MapArmy } from '../src/ui/map/armies';
+import { CROWD, armiesOnMap, armyPosition, crowdOf, crowdShare, figuresFor, groundAt, type Ground, type MapArmy } from '../src/ui/map/armies';
 import { BIOME, SUB_X, SUB_Y, biomeAt, biomeGrid, rawVertex, tileBiome, type Biome } from '../src/ui/map/biomes';
 import type { Command, GameState } from '../src/engine/types';
 import { activeVillage, makeBotVillage, newTestGame } from './helpers';
@@ -116,6 +116,18 @@ describe('armies on the map', () => {
     expect(figuresFor(24)).toBe(24);
     expect(figuresFor(50)).toBe(41);
     expect(figuresFor(5000)).toBe(147);
+  });
+
+  it('crowdShare splits the budget so a full window still marches', () => {
+    // Six armies share the budget evenly instead of the far ones dropping out.
+    expect(crowdShare(6)).toBe(100);
+    // It keeps shrinking with more armies in view rather than floored, which is what left some as icons.
+    expect(crowdShare(20)).toBe(30);
+    expect(crowdShare(60)).toBe(10);
+    expect(crowdShare(600)).toBe(1);
+    // Up to that point the shares always fit the whole budget, however crowded the window gets. Past one figure each
+    // there is nothing left to shrink, which no window reaches: it would take more armies than the map has tiles.
+    for (const n of [1, 6, 20, 60, 100, 300, 600]) expect(crowdShare(n) * n).toBeLessThanOrEqual(CROWD.maxOnScreen);
   });
 
   it('crowdOf keeps every present type and respects the cap', () => {
