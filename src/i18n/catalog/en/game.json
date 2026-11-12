@@ -918,17 +918,12 @@
     "allVillages": "all villages"
   },
   "reports": {
-    "armyUnknown": "Your army was wiped out, and nobody came back to count the enemy. Their troops are unknown.",
-    "scoutUnknown": "Your scouts were caught before they could look. What stood against them is unknown.",
-    "noUnits": "no units",
-    "count": "Count",
     "losses": "Losses",
     "missing": "This report doesn't exist.",
     "back": "← List",
     "retry": "Repeat the attack (same troops)",
     "sendA": "Send template A",
     "delete": "Delete",
-    "result": "Result:",
     "conquered": "Village conquered!",
     "scoutOk": "Scouting succeeded",
     "scoutFail": "Scouting failed",
@@ -972,7 +967,16 @@
       "place": "the road at {at}",
       "missed": "your troops found nothing: the army was gone.",
       "scouted": "Scouted army:"
-    }
+    },
+    "quantity": "Quantity:",
+    "origin": "Origin:",
+    "destination": "Destination:",
+    "armyUnknown": "Your army was wiped out, and nobody came back to count the enemy. Their troops are unknown.",
+    "scoutUnknown": "Your scouts were caught before they could look. What stood against them is unknown.",
+    "battleAt": "Battle at {at}",
+    "buildings": "Buildings:",
+    "fromTo": "from {from} to {to}",
+    "onlyUsedUnits": "Only units in this battle"
   },
   "farm": {
     "status": {

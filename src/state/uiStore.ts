@@ -33,6 +33,21 @@ export interface UiPrefs {
   showBuildPlan: boolean;
   /** Buildings that are not yet available are listed on the Village tab; the Town Hall always lists them. */
   showLockedBuildings: boolean;
+  /**
+   * Battle reports: show only the unit types the battle used, instead of all twelve. Remembered like the other
+   * preferences, so it survives a reload; a phone starts with it on, where twelve columns do not fit.
+   */
+  reportsCompactUnits: boolean;
+}
+
+/**
+ * A narrow window is a phone, where a report's twelve unit columns do not fit: the reader starts with only the
+ * units the battle used, so nothing has to be scrolled sideways.
+ */
+function narrowScreen(): boolean {
+  return (
+    typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches
+  );
 }
 
 const PREFS_KEY = "lh-ui-prefs";
@@ -48,6 +63,7 @@ function defaultPrefs(): UiPrefs {
     lockedOpen: true,
     showBuildPlan: true,
     showLockedBuildings: true,
+    reportsCompactUnits: narrowScreen(),
   };
 }
 

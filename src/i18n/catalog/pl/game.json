@@ -952,17 +952,12 @@
     "allVillages": "wszystkie wioski"
   },
   "reports": {
-    "armyUnknown": "Twoje wojsko zostało zniszczone i nikt nie wrócił, by policzyć wroga. Jego siły są nieznane.",
-    "scoutUnknown": "Twoi zwiadowcy zostali schwytani, zanim zdążyli się rozejrzeć. Nie wiadomo, co im się postawiło.",
-    "noUnits": "brak jednostek",
-    "count": "Liczba",
     "losses": "Straty",
     "missing": "Raport nie istnieje.",
     "back": "← Lista",
     "retry": "Ponów atak (ten sam skład)",
     "sendA": "Wyślij szablon A",
     "delete": "Usuń",
-    "result": "Wynik:",
     "conquered": "Wioska podbita!",
     "scoutOk": "Zwiad udany",
     "scoutFail": "Zwiad nieudany",
@@ -1006,7 +1001,16 @@
       "place": "droga w {at}",
       "missed": "twoje wojsko nikogo nie zastało: armii już nie było.",
       "scouted": "Zbadana armia:"
-    }
+    },
+    "quantity": "Stan:",
+    "origin": "Skąd:",
+    "destination": "Dokąd:",
+    "armyUnknown": "Twoje wojsko zostało zniszczone i nikt nie wrócił, by policzyć wroga. Jego siły są nieznane.",
+    "scoutUnknown": "Twoi zwiadowcy zostali schwytani, zanim zdążyli się rozejrzeć. Nie wiadomo, co im się postawiło.",
+    "battleAt": "Bitwa pod {at}",
+    "buildings": "Budynki:",
+    "fromTo": "z {from} na {to}",
+    "onlyUsedUnits": "Tylko jednostki z bitwy"
   },
   "farm": {
     "status": {
