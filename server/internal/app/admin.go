@@ -148,7 +148,7 @@ type WorldSettingsPatch map[string]json.RawMessage
 
 var changeableSettings = []string{"worldSpeed", "unitSpeed", "humanModifiers", "botModifiers", "barbarianModifiers", "battleLosses",
 	"beginnerProtectionDays", "lastVillage", "difficulty", "botStance", "noFieldBattles", "tradingEnabled",
-	"tradeOfferDurationHrs"}
+	"tradeOfferDurationHrs", "noBuildPlans", "noAutoFarm"}
 
 // UpdateWorldSettings changes the settings that may change in a running world. Every stored village is
 // settled at the old pace first; timers already running keep their end times.
@@ -195,6 +195,7 @@ func applySettings(w WorldTx, now int64, patch WorldSettingsPatch) error {
 		}
 	}
 	w.Row().Config = cfg
+	game.SyncFeatureToggles(w) // cancel or re-schedule human auto-farm ticks for the toggles
 	w.LogAction(actorAdmin, false, "settings", patch)
 	return nil
 }

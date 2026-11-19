@@ -191,7 +191,16 @@ function LockedBuildings() {
 }
 
 /** Buildings table with upgrades — in the village overview and on the Headquarters page. A building's name opens its page. */
-export function BuildingsTable({ onOpen, focus }: { onOpen: (b: BuildingId) => void; focus?: string | null }) {
+export function BuildingsTable({
+  onOpen,
+  focus,
+  showLocked = true,
+}: {
+  onOpen: (b: BuildingId) => void;
+  focus?: string | null;
+  /** The player may hide the buildings that are not available yet from the Village tab. */
+  showLocked?: boolean;
+}) {
   const t = useT();
   return (
     <>
@@ -213,7 +222,7 @@ export function BuildingsTable({ onOpen, focus }: { onOpen: (b: BuildingId) => v
           </tbody>
         </table>
       </div>
-      <LockedBuildings />
+      {showLocked && <LockedBuildings />}
     </>
   );
 }

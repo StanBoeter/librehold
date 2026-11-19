@@ -28,7 +28,7 @@ type VillageChange struct {
 // Changes is what one committed unit of work changed, as an adapter sees it.
 type Changes struct {
 	Villages         []VillageChange
-	CommandOwners    []game.PlayerRef // owners of the home and target villages of new, changed or deleted commands
+	CommandOwners    []game.PlayerRef // owners of the home and target villages of new, changed or deleted commands, and the owner of an army cut loose from its village
 	Humans           []game.PlayerID  // changed human states
 	ReportRecipients []game.PlayerID
 	Ranking          bool // a stats event ran
@@ -69,8 +69,11 @@ func (c Changes) Updates(worldID int64) []Update {
 	for _, v := range c.Viewers {
 		add(v, TopicState)
 	}
+	// A report can be all a player learns of a battle, as when their support dies in another player's village,
+	// and the state they hold changed with it.
 	for _, r := range c.ReportRecipients {
 		add(game.Ref(r), TopicReports)
+		add(game.Ref(r), TopicState)
 	}
 	if c.Ranking {
 		world[TopicRanking] = true

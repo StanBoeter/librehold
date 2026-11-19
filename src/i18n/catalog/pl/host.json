@@ -18,6 +18,8 @@
       "botStance": "Boty wobec graczy",
       "fieldBattles": "Armie mogą się spotkać w drodze",
       "tradingEnabled": "Gracze i boty mogą handlować",
+      "buildPlans": "Plany budowy są włączone",
+      "autoFarm": "Auto-farma jest włączona",
       "sightRadius": "Widać przechodzące armie (pola, 0 = wcale)",
       "protectionMin": "Ochrona początkujących (minuty)",
       "domination": "Wcześniejsza wygrana przy",

@@ -36,6 +36,8 @@ export function WorldSettings({ settings: s, instant }: { settings: PublicSettin
     ['battleLosses', t('site.worlds.setting.battleLosses'), t(`admin.choice.battleLosses.${s.battleLosses}`)],
     ['fieldBattles', t('site.worlds.setting.fieldBattles'), t(s.fieldBattles ? 'site.worlds.yes' : 'site.worlds.no')],
     ['sightRadius', t('site.worlds.setting.sightRadius'), sight],
+    ['buildPlans', t('site.worlds.setting.buildPlans'), t(s.buildPlans ? 'site.worlds.yes' : 'site.worlds.no')],
+    ['autoFarm', t('site.worlds.setting.autoFarm'), t(s.autoFarm ? 'site.worlds.yes' : 'site.worlds.no')],
     // Two rows: whether trading happens at all, and for how long an offer lasts. A single row used to hide the
     // duration as soon as trading was off, which read as though the setting had disappeared.
     ['trading', t('site.worlds.setting.trading'), t(s.tradingEnabled ? 'site.worlds.yes' : 'site.worlds.off')],

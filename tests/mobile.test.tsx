@@ -182,7 +182,8 @@ describe('phone navigation', () => {
     // The bar is `fixed bottom-0` and 51 px tall; a toast at `bottom-4` lands half under it.
     useGameStore.setState({ lastError: 'Nie dość kupców' });
     render(<ErrorToast />);
-    const box = screen.getByText('Nie dość kupców').parentElement!;
+    // The message sits inside the toast's panel, which is inside the fixed container that dodges the bar.
+    const box = screen.getByText('Nie dość kupców').closest('.fixed')!;
     expect(box.className).toMatch(/max-md:bottom-\[calc\(\s*62px\s*\+\s*env\(safe-area-inset-bottom/);
     // The plain `bottom-4` stays for the desktop layout, where there is no bar to dodge.
     expect(box.className).toContain('bottom-4');

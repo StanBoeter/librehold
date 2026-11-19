@@ -116,6 +116,10 @@ type Command struct {
 	// Settled marks a shipment that paid for something already given up: a leg of an accepted trade offer. Its
 	// owner may not turn it back, because the other side has shipped against it and there is no way to recall that.
 	Settled bool `json:"settled,omitempty"`
+	// OwnerID and Research are set when a conquest cuts the army loose from its village: it belongs to this player
+	// from then on, fights with the research it left with, and has no home to come back to.
+	OwnerID  PlayerRef `json:"ownerId,omitempty"`
+	Research *Units    `json:"research,omitempty"`
 }
 
 // FieldPoint is a place on the map between tiles, in tile units.
@@ -188,6 +192,7 @@ type Report struct {
 	BuildingDamage *BuildingDamage `json:"buildingDamage,omitempty"`
 	Haul           *Resources      `json:"haul,omitempty"`
 	HaulCapacity   *float64        `json:"haulCapacity,omitempty"`
+	NoHome         bool            `json:"noHome,omitempty"` // the army was cut loose from its village and took nothing, having no home to carry it to
 	LoyaltyBefore  *float64        `json:"loyaltyBefore,omitempty"`
 	LoyaltyAfter   *float64        `json:"loyaltyAfter,omitempty"`
 	Conquered      bool            `json:"conquered,omitempty"`

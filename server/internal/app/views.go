@@ -33,6 +33,9 @@ type PlayerState struct {
 	UnreadReports int                            `json:"unreadReports"`
 	Instant       *InstantView                   `json:"instant,omitempty"`
 	Hosted        *HostedView                    `json:"hosted,omitempty"`
+	// SupportAbroad is, for each of the player's villages, its units stationed as support in other players' villages,
+	// which the browser can't see in their SupportFrom.
+	SupportAbroad map[string]game.UnitCounts `json:"supportAbroad,omitempty"`
 }
 
 // InstantView is a short world's clock as its players see it, in world time.
@@ -94,7 +97,8 @@ type OwnPlayer struct {
 }
 
 // CommandView is a command as a player sees it. The fields below shadow the command's own: for someone else's
-// command only its origin, target, type and times show, plus the load of a trade.
+// command only its origin, target, type and times show, plus the load of a trade and whether the army was cut
+// loose from its village.
 type CommandView struct {
 	*game.Command
 	Units          *game.UnitCounts     `json:"units,omitempty"`
@@ -105,15 +109,18 @@ type CommandView struct {
 	FieldHit       bool                 `json:"fieldHit,omitempty"`
 	AutoFarm       bool                 `json:"autoFarm,omitempty"`
 	Farm           bool                 `json:"farm,omitempty"`
+	CutLoose       bool                 `json:"cutLoose,omitempty"`
+	OwnerID        game.PlayerRef       `json:"ownerId,omitempty"`
+	Research       *game.Units          `json:"research,omitempty"` // never set: hides the snapshot from every view
 }
 
 func ownCommand(c *game.Command) CommandView {
 	return CommandView{Command: c, Units: &c.Units, CatapultTarget: c.CatapultTarget, Haul: c.Haul, Intercept: c.Intercept,
-		Threats: c.Threats, FieldHit: c.FieldHit, AutoFarm: c.AutoFarm, Farm: c.Farm}
+		Threats: c.Threats, FieldHit: c.FieldHit, AutoFarm: c.AutoFarm, Farm: c.Farm, CutLoose: c.OwnerID != "", OwnerID: c.OwnerID}
 }
 
 func foreignCommand(c *game.Command) CommandView {
-	v := CommandView{Command: c}
+	v := CommandView{Command: c, CutLoose: c.OwnerID != ""}
 	if c.Type == "trade" {
 		v.Haul = c.Haul
 	}
@@ -218,6 +225,26 @@ func (s *Service) playerState(w WorldTx, me game.PlayerID) *PlayerState {
 					mine = append(mine, c)
 				}
 			}
+			for _, host := range w.SupportHosts(id) {
+				if host.OwnerID == own {
+					continue
+				}
+				if st.SupportAbroad == nil {
+					st.SupportAbroad = map[string]game.UnitCounts{}
+				}
+				sum := st.SupportAbroad[id]
+				for u, n := range host.SupportFrom[id] {
+					sum[u] += n
+				}
+				st.SupportAbroad[id] = sum
+			}
+		}
+		for _, c := range game.LooseArmies(w, me) {
+			if !seen[c.ID] {
+				seen[c.ID] = true
+				st.Commands = append(st.Commands, ownCommand(c))
+				mine = append(mine, c)
+			}
 		}
 		for id := range st.Villages {
 			for _, c := range w.CommandsTo(id) {
@@ -259,10 +286,11 @@ func (s *Service) playerState(w WorldTx, me game.PlayerID) *PlayerState {
 	return st
 }
 
-// Reports pages the player's reports, newest first, before a report time; at most 100 at once.
+// Reports pages the player's reports, newest first, before a report time; at most all the reports a player keeps
+// (CombatBalance.MaxReports) at once, so the client can show the whole inbox.
 func (s *Service) Reports(ctx context.Context, acct *Account, worldID int64, before int64, limit int) ([]*game.Report, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 100
+	if limit <= 0 || limit > game.CombatBalance.MaxReports {
+		limit = game.CombatBalance.MaxReports
 	}
 	if before <= 0 {
 		before = math.MaxInt64

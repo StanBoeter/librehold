@@ -136,7 +136,7 @@ describe('barbarian resource multiplier', () => {
 describe('the data files read the generated tables', () => {
   it('every table in balance.json is read by a data file', () => {
     const sources = readdirSync('src/data').filter((f) => f.endsWith('.ts')).map((f) => readFileSync(`src/data/${f}`, 'utf8')).join('\n');
-    const imported = new Set([...sources.matchAll(/import\s*\{([^}]*)\}\s*from\s*'\.\/balance\.json'/g)]
+    const imported = new Set([...sources.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]\.\/balance\.json['"]/g)]
       .flatMap((m) => m[1]!.split(',').map((s) => s.trim().split(/\s+as\s+/)[0]!)));
     expect(Object.keys(balance).filter((k) => !imported.has(k))).toEqual([]);
   });

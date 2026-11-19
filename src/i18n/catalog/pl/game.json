@@ -180,7 +180,7 @@
     },
     "loot5000": {
       "title": "Łupieżca",
-      "description": "Zrabuj łącznie 5 000 surowców — nagroda odblokowuje auto-farmę."
+      "description": "Zrabuj łącznie 5 000 surowców."
     },
     "template_a": {
       "title": "Szablon farmy",
@@ -736,8 +736,10 @@
     "newTemplate": "Nowy szablon",
     "delete": "Usuń szablon",
     "inPlan": "W planie: {n} kroków · najbliższe: {next}",
+    "active": "Plan rozbudowy aktywny ({n})",
     "clear": "Wyczyść",
     "clickToRemove": "Kliknij, aby usunąć",
+    "removeStep": "Usuń krok {n}: {building}",
     "addSteps": "Dodaj kroki przyciskami powyżej.",
     "save": "Zapisz szablon",
     "cancel": "Anuluj"
@@ -815,7 +817,10 @@
     "colCost": "Koszt",
     "colPopulation": "Populacja",
     "colTimeEach": "Czas / szt.",
-    "colInVillage": "W wiosce",
+    "colInVillage": "W wiosce / łącznie",
+    "colInVillageHint": "Jednostki w wiosce / wszystkie jednostki tej wioski, razem z tymi w drodze i wspierającymi inne wioski",
+    "onTheMove": "{n} w drodze",
+    "supporting": "{n} jako wsparcie",
     "max": "Maks. {n}",
     "recruitTitle": "Rekrutuj {count}× {unit}",
     "recruit": "Rekrutuj",
@@ -951,6 +956,9 @@
     "animOff": "wyłączone",
     "reducedMotion": "przy „prefers-reduced-motion\" domyślnie ograniczone",
     "scene": "Ilustracja wioski",
+    "showBuildPlan": "Plan rozbudowy w widoku wioski",
+    "showLockedBuildings": "Niedostępne budynki w widoku wioski",
+    "alwaysInTownHall": "zawsze w Ratuszu",
     "sound": "Dźwięki",
     "testBuild": "Test: budowa",
     "testAlarm": "Test: alarm",
@@ -1048,6 +1056,7 @@
     "loot": "Łup:",
     "fullLoad": "— pełne obciążenie",
     "partialLoot": "— częściowy łup",
+    "noHome": "Nic nie zabrano: wioska, z której wyruszyli atakujący, została podbita, więc nie mają domu, do którego mogliby zanieść łup.",
     "loyalty": "Lojalność:",
     "villageTaken": " — wioska przejęta",
     "resources": "Zasoby:",
@@ -1204,6 +1213,7 @@
     "distance": "Dystans: <b>{n}</b> pól",
     "travel": "Czas marszu:",
     "arrival": "Przybycie:",
+    "maxLoot": "Łup: do <b>{n}</b> surowców",
     "scoutMission": "Misja zwiadowcza (same zwiadowcy).",
     "when": "Kiedy:",
     "mode": {

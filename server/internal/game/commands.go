@@ -172,7 +172,8 @@ func countHumanAttack(w World, actor PlayerID, sent UnitCounts) {
 }
 
 func CanCancelCommand(w World, c *Command) bool {
-	if c.Type == "return" || c.Type == "intercept" {
+	// Returns, interceptions and armies cut loose from their village never turn back.
+	if c.Type == "return" || c.Type == "intercept" || c.OwnerID != "" {
 		return false
 	}
 	// A settled shipment already bought something: an accepted offer has been consumed and the other side has
@@ -198,7 +199,7 @@ func CancelCommand(w World, actor PlayerID, commandID string) error {
 	if c == nil {
 		return Rule("noCommand", map[string]any{"id": commandID})
 	}
-	if home := w.Village(CommandHome(c)); home == nil || home.OwnerID != Ref(actor) {
+	if commandOwner(w, c) != actor {
 		return NotOwner("cancel-command")
 	}
 	if c.Settled {

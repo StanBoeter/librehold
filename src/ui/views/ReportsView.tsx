@@ -277,6 +277,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
         {/* What the attack actually did: loot, loyalty, and the damage done inside the village. Each is a full-width
             red label bar with its contents on the lines below, and wraps freely — no clipping, no sideways scrolling.
             Wall and building damage share one bar: both are damage to what the defender built. */}
+        {/* An army whose village was conquered carries nothing home: say so, rather than show an empty haul. */}
+        {!r.haul && r.noHome && <div className="panel p-2">{t('reports.noHome')}</div>}
         {(r.haul || r.loyaltyBefore !== undefined || r.wallBefore !== r.wallAfter || r.buildingDamage) && (
           <div className="pt-1.5">
             {r.haul && (
@@ -419,7 +421,13 @@ export function ReportsView() {
             {rows.map((r) => (
               <tr key={r.id} className={`cursor-pointer ${r.read ? 'text-muted' : 'font-semibold'}`} onClick={() => { markRead(r.id); setSelected(r.id); }}>
                 <td className="text-center w-8 stack-inline"><PixelIcon name={r.icon} size={16} /></td>
-                <td className="stack-inline">{r.o} → {r.t}{r.autoFarm && <AutoFarmTag />}</td>
+                <td className="stack-inline">
+                  {/* A real button, so the report can be opened from the keyboard as well as by clicking the row. */}
+                  <button type="button" className="cursor-pointer text-left hover:underline focus:underline">
+                    {r.o} → {r.t}
+                  </button>
+                  {r.autoFarm && <AutoFarmTag />}
+                </td>
                 <td className="tabular-nums" data-label={t('reports.colLoot')}>{r.haul !== null ? `${formatNumber(r.haul)}${r.cap ? ` / ${formatNumber(r.cap)}` : ''}` : '—'}</td>
                 <td className="tabular-nums whitespace-nowrap" data-label={t('reports.colTime')}>{clock.at(r.time)}</td>
               </tr>

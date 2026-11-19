@@ -26,6 +26,9 @@ export interface WorldConfig {
   sightRadius?: number;
   tradingEnabled?: boolean;
   tradeOfferDurationHrs?: number;
+  /** Build plans and auto-farming are off for humans; bots keep both. */
+  noBuildPlans?: boolean;
+  noAutoFarm?: boolean;
 }
 
 /** The server's defaults; it leaves field battles on and the sight radius at 0, which means 1. */
@@ -63,6 +66,8 @@ export const FIELDS: FieldSpec[] = [
   { key: 'battleLosses', creationOnly: false, choices: ['normal', 'reduced'] },
   { key: 'noFieldBattles', creationOnly: false, flag: true },
   { key: 'tradingEnabled', creationOnly: false, flag: true },
+  { key: 'noBuildPlans', creationOnly: false, flag: true },
+  { key: 'noAutoFarm', creationOnly: false, flag: true },
   // 0 is "no sight", a separate switch in the hosted form.
   { key: 'sightRadius', creationOnly: true, min: 1, max: L.sightRadius.max, step: 1 },
   { key: 'tradeOfferDurationHrs', creationOnly: false, min: L.tradeOfferDurationHrs.min, max: L.tradeOfferDurationHrs.max, step: 1 },

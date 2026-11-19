@@ -9,3 +9,4 @@ contributions, licensed as described in `LICENSING.md` and `CONTRIBUTING.md`.
 - right-ward <ninja.notleft@proton.me> — contributor
 - [Sinkleberg](https://github.com/Sinkleberg) — contributor
 - [Stan Boeter](https://stanboeter.nl) — contributor
+- Alzer Del Zeyger — contributor

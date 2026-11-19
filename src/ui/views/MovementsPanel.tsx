@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { commandHome } from '../../engine/commands';
 import { humanVillageIds } from '../../engine/players';
-import type { Command } from '../../engine/types';
+import { HUMAN_ID, type Command } from '../../engine/types';
 import { t, useT } from '../../i18n/i18n';
 import { selectActiveVillage, useGameStore } from '../../state/gameStore';
 import { useUiStore } from '../../state/uiStore';
@@ -30,6 +30,11 @@ function movementHome(c: Command): string {
   return c.type === 'trade' && c.returning === true ? c.targetId : commandHome(c);
 }
 
+/** An army cut loose from its village has no home any more; its owner is what the list can match on. */
+function isOwnLoose(c: Command): boolean {
+  return c.cutLoose === true && c.ownerId === HUMAN_ID;
+}
+
 /**
  * Whether a command belongs on a Movements list covering these villages: what they have on the road, plus a shipment
  * arriving at one of them. A single-village screen passes just that village; the Overview passes the villages it is
@@ -37,6 +42,9 @@ function movementHome(c: Command): string {
  */
 export function isMovementOf(c: Command, homes: ReadonlySet<string>, own: ReadonlySet<string>, scope: MovementScope = 'all'): boolean {
   if (scope === 'trade' && c.type !== 'trade') return false;
+  // A cut-loose army belongs to its owner, not to any village: it shows on the owner's list, and on the list of the
+  // villages it is marching at.
+  if (isOwnLoose(c)) return homes.has(c.targetId) || c.ownerId === HUMAN_ID;
   return homes.has(movementHome(c)) || (homes.has(c.targetId) && isArrivingHaul(c, own));
 }
 

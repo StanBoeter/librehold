@@ -40,7 +40,7 @@ export function HostForm({ limits, me, onCreated }: { limits: HostLimits; me: Ac
       {values.map((v) => <option key={v} value={v}>{label(v)}</option>)}
     </select>
   );
-  const check = (key: 'fieldBattles' | 'tradingEnabled' | 'registeredOnly') => (
+  const check = (key: 'fieldBattles' | 'tradingEnabled' | 'buildPlans' | 'autoFarm' | 'registeredOnly') => (
     <div className="field">
       <label htmlFor={`host-${key}`}>
         <input id={`host-${key}`} type="checkbox" checked={form[key]} onChange={(e) => set(key, e.target.checked)} />
@@ -96,6 +96,8 @@ export function HostForm({ limits, me, onCreated }: { limits: HostLimits; me: Ac
         </Field>
         {check('fieldBattles')}
         {check('tradingEnabled')}
+        {check('buildPlans')}
+        {check('autoFarm')}
         {check('registeredOnly')}
       </div>
       {error && <p className="error" role="alert">{error}</p>}

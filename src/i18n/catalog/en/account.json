@@ -118,7 +118,10 @@
       "noFieldBattles": "No field battles",
       "sightRadius": "Sight radius (tiles)",
       "tradingEnabled": "Trading",
-      "tradeOfferDurationHrs": "Trade offer duration (hours)"
+      "tradeOfferDurationHrs": "Trade offer duration (hours)",
+      "noBuildPlans": "No build plans",
+      "noAutoFarm": "No auto-farming",
+      "sightRadius": "Sight radius (tiles)"
     },
     "choice": {
       "barbarianDensity": {

@@ -141,9 +141,11 @@ export function stateFixture(g: GameState, me = HUMAN_ID, worldId = 1): PlayerSt
   const commands: CommandView[] = [];
   for (const c of g.commands) {
     const home = c.type === 'return' || (c.type === 'trade' && c.returning) ? c.targetId : c.originId;
-    if (ownIds.has(home)) commands.push(structuredClone(c));
-    else if (ownIds.has(c.targetId)) {
-      const { units: _units, ...rest } = structuredClone(c);
+    // An army cut loose by a conquest belongs to its owner, not to a village, so it is matched on its owner.
+    if (c.cutLoose ? c.ownerId === HUMAN_ID : ownIds.has(home)) {
+      commands.push({ ...structuredClone(c), ...(c.cutLoose ? { ownerId: me } : {}) });
+    } else if (ownIds.has(c.targetId)) {
+      const { units: _units, ownerId: _ownerId, ...rest } = structuredClone(c);
       commands.push(rest);
     }
   }

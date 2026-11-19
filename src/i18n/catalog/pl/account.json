@@ -118,7 +118,10 @@
       "noFieldBattles": "Bez bitew w polu",
       "sightRadius": "Zasięg wzroku (pola)",
       "tradingEnabled": "Handel",
-      "tradeOfferDurationHrs": "Czas trwania oferty (godziny)"
+      "tradeOfferDurationHrs": "Czas trwania oferty (godziny)",
+      "noBuildPlans": "Bez planów budowy",
+      "noAutoFarm": "Bez auto-farmy",
+      "sightRadius": "Zasięg wzroku (pola)"
     },
     "choice": {
       "barbarianDensity": {
