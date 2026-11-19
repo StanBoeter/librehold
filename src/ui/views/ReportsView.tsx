@@ -44,6 +44,7 @@ function BattleSidePanel({
   village,
   bot,
   hidden,
+  hiddenText,
   scroller,
   units,
 }: {
@@ -54,6 +55,8 @@ function BattleSidePanel({
   village: string;
   bot?: boolean;
   hidden?: boolean;
+  /** Words for a side the reader was not told about: a wiped-out army and a caught scouting party differ. */
+  hiddenText?: string;
   /** Told where the sideways scroller is, so the two sides' tables can be scrolled as one. */
   scroller?: (el: HTMLDivElement | null) => void;
   /** The unit columns to draw, in order. Both sides are given the same list so the tables stay aligned. */
@@ -69,8 +72,10 @@ function BattleSidePanel({
         {bot && <BotTag />}
       </div>
       {hidden ? (
+        // The report carries no army for a side whose player was not told it: a wiped-out force has nobody left to
+        // describe what beat it, and a caught scouting party brought nothing back to describe.
         <p className="px-2 pb-2 italic text-muted">
-          {t("reports.armyUnknown")}
+          {hiddenText ?? t("reports.armyUnknown")}
         </p>
       ) : (
         <div className="overflow-x-auto" ref={scroller}>
@@ -392,6 +397,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <div className={`report-bar ${won ? "report-bar-ok" : ""}`}>
           {resultText(r)}
         </div>
+
         <div className="px-2 py-1.5 space-y-1">
           {r.field ? (
             <div>{t("reports.field.at", { at: fieldPlace(r) })}</div>
@@ -405,6 +411,14 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             !r.field?.missed && <LuckBar luck={r.luck} />}
           {r.morale !== 1 && (
             <div>{t("reports.morale", { n: Math.round(r.morale * 100) })}</div>
+          )}
+          {/* Whether the enemy came away knowing your troops. A defender cannot look at the attacker, so the
+              server says it outright rather than leaving him to read it off the attacker's table. */}
+          {r.defenderTroopsSeen === true && (
+            <div className="mt-1">{t("reports.troopsSeen")}</div>
+          )}
+          {r.defenderTroopsSeen === false && (
+            <div className="mt-1 text-ok">{t("reports.troopsUnknown")}</div>
           )}
         </div>
         <BattleSidePanel
@@ -432,6 +446,11 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             village={reportVillageLabel(r.target)}
             bot={r.target.ownerIsBot}
             hidden={r.defenderHidden}
+            hiddenText={
+              r.type === "scout" || r.type === "fieldScout"
+                ? t("reports.scoutUnknown")
+                : undefined
+            }
             scroller={(el) => {
               if (el) {
                 scrollers.add(el);
