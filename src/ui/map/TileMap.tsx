@@ -50,6 +50,9 @@ export interface TileMapProps {
   onZoom: (delta: number) => void;
   colors: boolean;
   maxPoints: number;
+  /** Army markers, the marching crowds and the command dots; off leaves the terrain, the villages, the route lines
+   * and their arrows. */
+  icons?: boolean;
   selected: { x: number; y: number } | null;
   onSelectTile: (x: number, y: number, village: boolean) => void;
   onSelectArmy: (id: string) => void;
@@ -61,15 +64,17 @@ export interface TileMapProps {
   surface?: (view: TileMapView) => ReactNode;
   /** Drawn beside or below the map (sheets on a narrow screen). */
   outside?: (view: TileMapView) => ReactNode;
+  /** Above the map, as wide as its frame: the display options. It takes its height off the window, not off the page. */
+  above?: ReactNode;
   /** Under the minimap. */
   side?: ReactNode;
 }
 
 const BIOME_KEY: Record<Biome, string> = { [BIOME.grass]: 'grass', [BIOME.water]: 'water', [BIOME.forest]: 'forest', [BIOME.mountain]: 'mountain' };
 
-function Tile({ x, y, tw, th, left, top, selected, maxPoints, colors, seed, activeId, dot, useTile, onSelect }: {
+function Tile({ x, y, tw, th, left, top, selected, maxPoints, colors, seed, activeId, dot, icons = true, useTile, onSelect }: {
   x: number; y: number; tw: number; th: number; left: number; top: number; selected: boolean; maxPoints: number; colors: boolean;
-  seed: number; activeId?: string; dot?: Dot; useTile: TileMapProps['useTile'];
+  seed: number; activeId?: string; dot?: Dot; icons?: boolean; useTile: TileMapProps['useTile'];
   onSelect: (x: number, y: number, village: boolean) => void;
 }) {
   const t = useTile(x, y);
@@ -90,7 +95,7 @@ function Tile({ x, y, tw, th, left, top, selected, maxPoints, colors, seed, acti
       data-tile-village={t.kind === 'village' ? t.id : undefined}
       onClick={() => onSelect(x, y, t.kind === 'village')}
     >
-      <TileArt village={village} dot={dot} tw={tw} th={th} />
+      <TileArt village={village} dot={dot} icons={icons} tw={tw} th={th} />
     </div>
   );
 }
@@ -140,8 +145,10 @@ const OVERLAY = '.panel, .map-card';
 
 export function TileMap(p: TileMapProps) {
   const { mapSize, seed, center, onCenter, zoomIdx, onZoom, onRegion, onHover } = p;
-  /** What the page gives the map: the wrapper's width, the height left under its top, and the viewport height. */
-  const [room, setRoom] = useState({ w: MAX_W + FRAME_W, h: MAX_H + FRAME_H, vh: MAX_H + FRAME_H });
+  /** What the page gives the map: the wrapper's width, the height left under its top, and the viewport height.
+   * `h` leaves the display bar its room too, so the *default* window fits the fold; `dragH` does not, because a window
+   * the player drags out may run past the fold — the page scrolls. */
+  const [room, setRoom] = useState({ w: MAX_W + FRAME_W, h: MAX_H + FRAME_H, dragH: MAX_H + FRAME_H, vh: MAX_H + FRAME_H });
   /** The window the player dragged out of the corner; `null` keeps the default that follows the screen. */
   const [custom, setCustom] = useState<{ w: number; h: number } | null>(readMapWindow);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -150,6 +157,7 @@ export function TileMap(p: TileMapProps) {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchBase = useRef<number | null>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const aboveRef = useRef<HTMLDivElement>(null);
 
   // touch-action alone does not stop iOS Safari from scrolling the page under a drag.
   useEffect(() => {
@@ -184,22 +192,35 @@ export function TileMap(p: TileMapProps) {
     const measure = () => {
       const vh = typeof window === 'undefined' ? MAX_H + FRAME_H : window.innerHeight;
       const top = el.getBoundingClientRect?.().top || 0;
+      // The display options sit inside the wrapper, above the frame, so their height comes off the window's too — and
+      // it follows the width, since the panel wraps its controls.
+      const above = aboveRef.current?.getBoundingClientRect?.().height || 0;
+      const under = Math.max(MIN_H + FRAME_H, Math.round(vh - top - PAGE_BOTTOM));
       setRoom({
         w: el.clientWidth || MAX_W + FRAME_W,
-        h: Math.max(MIN_H + FRAME_H, Math.round(vh - top - PAGE_BOTTOM)),
+        // The default window has to leave the bar its room as well, or it would push the page below the fold.
+        h: Math.max(MIN_H + FRAME_H, Math.round(under - above)),
+        // A window the player drags out is their call: it may run past the fold, and the page scrolls to reach it.
+        dragH: under,
         vh,
       });
     };
     measure();
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
     ro?.observe(el);
+    if (aboveRef.current) ro?.observe(aboveRef.current);
     window.addEventListener('resize', measure);
     return () => { ro?.disconnect(); window.removeEventListener('resize', measure); };
   }, []);
 
   /** The widest window the room takes: the frame and the bevel it paints outside its box come off both sides. */
   const maxW = Math.max(MIN_W, room.w - FRAME_W - 2 * FRAME_OUTSET);
+  /** The tallest the default window may be, so the bar above it and the map stay on the page. */
   const maxH = Math.max(MIN_H, room.h - FRAME_H - 2 * FRAME_OUTSET);
+  /** The tallest a window the player drags out may be. The bar is left out of this on purpose: growing the map down
+   * past the fold is allowed — the page scrolls — and without it the default already sits at the ceiling, so the
+   * corner would have nowhere to pull the map taller. */
+  const dragMaxH = Math.max(maxH, room.dragH - FRAME_H - 2 * FRAME_OUTSET);
   /** The default window and its minimap stand side by side in the room — the desktop layout. */
   const roomy = room.w >= MAX_W + FRAME_W + SIDE_COL;
   /** A room this wide holds the smallest window with its minimap still beside it, so the corner has something to
@@ -210,9 +231,9 @@ export function TileMap(p: TileMapProps) {
     ? { w: Math.min(MAX_W, maxW), h: Math.min(MAX_H, maxH) }
     : {
       w: Math.min(MAX_W, Math.max(MIN_W, room.w - FRAME_W)),
-      h: Math.min(MAX_H, Math.max(MIN_H, Math.round(room.vh * 0.56) - FRAME_H)),
+      h: Math.min(MAX_H, Math.max(MIN_H, Math.min(Math.round(room.vh * 0.56) - FRAME_H, maxH))),
     };
-  const size = resizable && custom ? clampWindow(custom, { w: maxW, h: maxH }) : fit;
+  const size = resizable && custom ? clampWindow(custom, { w: maxW, h: dragMaxH }) : fit;
   const { tw, th, width, height, cols, rows } = mapViewportAt(size.w, size.h, zoomIdx);
   const x0 = Math.floor(center.x - width / tw / 2);
   const y0 = Math.floor(center.y - height / th / 2);
@@ -220,6 +241,9 @@ export function TileMap(p: TileMapProps) {
   const offY = (center.y - height / th / 2 - y0) * th;
   /** The minimap still stands beside a map this wide; once the map is dragged wider, it goes underneath. */
   const beside = width + FRAME_W + 2 * FRAME_OUTSET + SIDE_COL <= room.w;
+  /** The bar over the map spans the room, not the window: dragging the map smaller or wider must not resize the
+   * options above it, or the row of switches would reflow every time the corner moves. */
+  const bandW = room.w;
   /** Cards are placed against the map surface, so its own width decides between an anchored card and a sheet. */
   const view: TileMapView = { x0, y0, offX, offY, tw, th, width, height, wide: width >= CARD_MIN_W };
 
@@ -294,7 +318,7 @@ export function TileMap(p: TileMapProps) {
     const move = (ev: PointerEvent) => {
       const g = grip.current;
       if (!g) return;
-      const next = clampWindow({ w: g.w + ev.clientX - g.sx, h: g.h + ev.clientY - g.sy }, { w: maxW, h: maxH });
+      const next = clampWindow({ w: g.w + ev.clientX - g.sx, h: g.h + ev.clientY - g.sy }, { w: maxW, h: dragMaxH });
       g.size = next;
       setCustom(next);
     };
@@ -321,7 +345,7 @@ export function TileMap(p: TileMapProps) {
           key={`${x},${y}`} x={x} y={y} tw={tw} th={th}
           left={Math.round(i * tw - offX)} top={Math.round(j * th - offY)}
           selected={p.selected?.x === x && p.selected?.y === y} maxPoints={p.maxPoints} colors={p.colors}
-          seed={seed} activeId={p.activeId} dot={p.dots?.[`v:${x}:${y}`]} useTile={p.useTile}
+          seed={seed} activeId={p.activeId} dot={p.dots?.[`v:${x}:${y}`]} icons={p.icons} useTile={p.useTile}
           onSelect={(sx, sy, village) => { if (!drag.current?.moved) p.onSelectTile(sx, sy, village); }}
         />,
       );
@@ -346,48 +370,58 @@ export function TileMap(p: TileMapProps) {
     if (y % 5 === 0) grid.push(<div key={`gy${y}`} className="absolute left-0 right-0 pointer-events-none" style={{ top, height: 1, background: 'rgba(20,40,10,0.45)' }} />);
   }
 
+  const minimap = (
+    <Minimap seed={seed} mapSize={mapSize} dots={p.minimapDots} center={center} cols={width / tw} rows={height / th}
+      onJump={(x, y) => onCenter(clampCenter({ x: x + 0.5, y: y + 0.5 }))} />
+  );
+
   return (
-    <div ref={wrapRef} className={`flex gap-3 items-start ${beside ? 'flex-row' : 'flex-col'}`}>
-      <div className="relative frame-wood shrink-0" style={{ width: width + FRAME_W, height: height + FRAME_H }}>
-        <div className="absolute left-7 overflow-hidden wood-strip border-2 border-t-0 border-border-dark" style={{ width, height: RULER_H, top: height + 2 }}>{rulerX}</div>
-        <div className="absolute left-0 top-0 overflow-hidden wood-strip map-ruler-y border-2 border-r-0 border-border-dark" style={{ width: RULER_W, height }}>{rulerY}</div>
-        <div
-          ref={surfaceRef}
-          className="absolute left-7 top-0 overflow-hidden border-2 border-wood-border cursor-grab active:cursor-grabbing"
-          style={{ width, height, touchAction: 'none', ...MAP_GROUND }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerEnd}
-          onPointerCancel={onPointerEnd}
-          onPointerLeave={() => onHover?.(null)}
-          data-map-surface
-        >
-          <TerrainLayer
-            seed={seed} x0={x0} y0={y0} cols={cols} rows={rows} offX={offX} offY={offY} tw={tw} th={th} mapSize={mapSize}
-            isVillage={p.isVillage} revision={p.revision}
-          />
-          {tiles}
-          {grid}
-          <ArmyLayerView
-            armies={p.armies} seed={seed} isVillage={p.isVillage} mode={p.animations} clock={p.clock}
-            x0={x0} y0={y0} offX={offX} offY={offY} tw={tw} th={th} width={width} height={height}
-            onSelect={p.onSelectArmy} isDragging={() => !!drag.current?.moved}
-          />
-          {p.surface?.(view)}
+    <div ref={wrapRef} className="flex flex-col gap-2">
+      {/* The display options are a bar over the map, as wide as the room the map stands in rather than the map itself:
+          they belong to what the player is looking at, and their width has to hold still while the corner is dragged.
+          Under the map they read as a separate piece of the page — a full-width bar with the minimap left hanging. */}
+      {p.above && <div ref={aboveRef} style={{ width: bandW }} data-above>{p.above}</div>}
+      <div className={`flex gap-3 items-start ${beside ? 'flex-row' : 'flex-col'}`}>
+        <div className="shrink-0" style={{ width: width + FRAME_W }}>
+          <div className="relative frame-wood" style={{ width: width + FRAME_W, height: height + FRAME_H }}>
+            <div className="absolute left-7 overflow-hidden wood-strip border-2 border-t-0 border-border-dark" style={{ width, height: RULER_H, top: height + 2 }}>{rulerX}</div>
+            <div className="absolute left-0 top-0 overflow-hidden wood-strip map-ruler-y border-2 border-r-0 border-border-dark" style={{ width: RULER_W, height }}>{rulerY}</div>
+            <div
+              ref={surfaceRef}
+              className="absolute left-7 top-0 overflow-hidden border-2 border-wood-border cursor-grab active:cursor-grabbing"
+              style={{ width, height, touchAction: 'none', ...MAP_GROUND }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerEnd}
+              onPointerCancel={onPointerEnd}
+              onPointerLeave={() => onHover?.(null)}
+              data-map-surface
+            >
+              <TerrainLayer
+                seed={seed} x0={x0} y0={y0} cols={cols} rows={rows} offX={offX} offY={offY} tw={tw} th={th} mapSize={mapSize}
+                isVillage={p.isVillage} revision={p.revision}
+              />
+              {tiles}
+              {grid}
+              <ArmyLayerView
+                armies={p.armies} seed={seed} isVillage={p.isVillage} mode={p.animations} clock={p.clock}
+                x0={x0} y0={y0} offX={offX} offY={offY} tw={tw} th={th} width={width} height={height}
+                icons={p.icons} onSelect={p.onSelectArmy} isDragging={() => !!drag.current?.moved}
+              />
+              {p.surface?.(view)}
+            </div>
+            {resizable && <CornerGrip onPointerDown={onGripDown} />}
+          </div>
+          {!beside && (
+            // The minimap no longer fits beside the window, so it goes under the map on a line of its own, centred.
+            <div className="mt-2 flex justify-center" style={{ width: width + FRAME_W }} data-under>{minimap}</div>
+          )}
+          {!beside && p.side && (
+            <div className="mt-3 flex justify-center" style={{ width: width + FRAME_W }}>{p.side}</div>
+          )}
         </div>
-        {resizable && <CornerGrip onPointerDown={onGripDown} />}
-      </div>
-      {p.outside?.(view)}
-      {/* Beside the map while it fits there; once the player drags it too wide, underneath and centred on the map.
-          The column is capped to the frame's width so its `items-center` centres on the map, not on the page, and the
-          minimap keeps that centre even when the details panel arrives beside it. */}
-      <div
-        className={`flex gap-3 flex-col ${beside ? '' : 'items-center'}`}
-        style={beside ? undefined : { width: width + FRAME_W }}
-      >
-        <Minimap seed={seed} mapSize={mapSize} dots={p.minimapDots} center={center} cols={width / tw} rows={height / th}
-          onJump={(x, y) => onCenter(clampCenter({ x: x + 0.5, y: y + 0.5 }))} />
-        {p.side}
+        {p.outside?.(view)}
+        {beside && <div className="flex gap-3 flex-col">{minimap}{p.side}</div>}
       </div>
     </div>
   );
