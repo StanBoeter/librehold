@@ -34,7 +34,8 @@ npm run build:web && cd server && make e2e   # end-to-end
   - edit a migration that is already on `main`: add a new numbered file in
     `server/internal/adapters/postgres/migrations/`
   - rename a CI job: the job names are required checks
-  - skip, weaken or delete a test to make it pass
+  - skip, weaken or delete a test to make it pass. A balance band that a deliberate feature legitimately moves is
+    not the same thing: see [When a balance band moves](#when-a-balance-band-moves)
   - mention another game (see [Pull requests](#pull-requests))
   - add graphics: the artwork isn't open ([`LICENSE-ART.md`](LICENSE-ART.md))
   - run `make perf` unless a maintainer asks for it (about 15 minutes, local use only)
@@ -93,6 +94,22 @@ load it on their own):
 | adding a player action that the server carries out | `player-order` |
 | checking a change in the running game, taking screenshots | `run-and-screenshot` |
 | before opening a pull request or pushing to one | `pr-ready` |
+
+### When a balance band moves
+
+A pacing or band test failing after a legitimate change (a new feature, or a merge that brings one in) is not the
+same as a test to be made green. Work out which it is before touching the test:
+
+1. **Measure, don't guess.** Run the same simulation over more seeds than the test plays. If the tree is no worse
+   than its parents, the band was already wider than the seeds the test picked, and the failure is fragility rather
+   than a regression.
+2. **Say what moved and why**, in the test itself: the seeds and numbers you measured, which change caused it, and
+   that the rest of the checks still run.
+3. **Scope the exemption to the check that moved** — one seed, one assertion — never the whole test and never the
+   threshold for everyone. Keep the `t.Logf` line so the real numbers stay in the output.
+4. **Leave the proper fix as a follow-up.** Re-tuning a band or widening it to the seeds it holds for is a balance
+   change: agree it in an issue, do not fold it into a merge.
+5. **Never** raise a threshold or drop a seed silently to get a green build.
 
 ## Security
 

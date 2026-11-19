@@ -25,6 +25,8 @@ or balance change in the issue before writing it.
 5. **Regenerate and run.** `npm run gen` if a table or rule the browser shows changed, then
    `cd server && go test ./internal/game/...`. For a deliberate bot change, re-record the bands with
    `go test ./internal/game/ -run Bands -update` and say so in the PR.
+   A pacing or band test that fails without a deliberate change is a different question: measure it over more seeds
+   before touching the test, and follow [When a balance band moves](../../../AGENTS.md#when-a-balance-band-moves).
 6. **Update what players read:** `src/i18n/catalog/{en,pl}/guides.json`, the encyclopedia and FAQ,
    `docs/gameplay.md` or `docs/balance.md`, and code comments the change makes wrong.
 
