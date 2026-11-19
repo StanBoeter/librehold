@@ -44,9 +44,40 @@ checks the fonts.
 - Hovering a village shows a card describing it (`src/ui/map/MapHoverCard.tsx`): name, coordinates and continent (K + hundreds of y + hundreds of x), points, the player with their ranking points, bonus, the last attack with loot, troops from scouting, wall, distance; for an own village resources, Farmstead, troops and incoming attacks. It disappears while dragging the map; on touch there is none (a tap opens the menu).
 - The village icon depends on points — thresholds in `server/internal/game/data_world.go` (`MapConfig.VillageSizePoints`): < 300 hut, 300 fenced settlement, 1,000 palisade, 3,000 stone wall, 9,000 stronghold with towers, 11,000 castle. Art: `src/ui/map/PixelVillage.tsx`.
 - Menu data: `src/ui/map/villageInfo.ts` (a pure function, tested in `tests/map.test.ts`).
-- "Show farming" (on by default) takes the player's farm raids off the map, the armies and the command dots alike:
-  raids sent from a farm template or by the auto-farm, and their way home. The server keeps the choice per player and
-  world (`hide-farm-on-map`), and only the sender's state marks a command as a farm raid (`farm`).
+- **The map toolbar** is a bar over the map (`[data-map-display]`, the `above` slot of `TileMap`) holding the whole of
+  it — where the player is looking and what is drawn there — so no page-wide strip of buttons is stranded above the
+  panel and no `Map` heading is needed: the nav tab already says which view this is. Its three groups are, in order,
+  the navigation (My village, zoom, `x|y` + Go), **Armies** and **Icons**. The bar spans the room the map stands in,
+  not the map window, so its controls never reflow while the corner is dragged. Its height comes off the *default*
+  window: the map measures the bar and shrinks, so a bar that wraps to more lines never pushes the map below the fold.
+  A window the player drags out of the corner is their call and may run past the fold — the page scrolls to reach it —
+  which is why the drag ceiling leaves the bar out; otherwise the default would already sit at the ceiling and the
+  corner could not pull the map any taller. The gaps are tight so all three groups still fit one line at 1280 px; a
+  narrower screen wraps them, and the map shrinks to match. The panel keeps only a screen-reader legend naming the
+  fieldset. Because the bar is a third of a phone screen, it folds away: the switch is a bare glyph (`−`/`+`) at the
+  end of the row, not a header of its own — a header would give back the space folding it saves. Folded, the bar gives
+  up its panel frame and shrinks to the glyph in the top right corner: the same full-width wooden box with its
+  switches pulled out would read as a broken bar, not a folded one, and would still cost the map its height. The map
+  keeps its armies, its routes and its arrowheads. The choice is a local preference (`mapToolbarOpen`). It keeps two axes apart, because they
+  stack: **Armies** decides which armies are drawn *at all* (their route lines and arrowheads included), while
+  **Icons** only strips the sprites and markers off the armies that are drawn — with icons off, every army above keeps
+  its line and arrowhead. Next to them are "Player colours" (other players' villages in their colour) and "Hide
+  villages > N pts" (villages above that many points left out); the colours and the limit are per visit. The army
+  layers are filtered by `withArmyLayers` in `src/ui/map/armies.ts`; every toggle is on by default and remembered per
+  browser in `lh-ui-prefs`:
+  - "Show farming" takes the player's farm raids off the map, the armies and the command dots alike: raids sent from a
+    farm template or by the auto-farm, and their way home. The server keeps this choice per player and world
+    (`hide-farm-on-map`), and only the sender's state marks a command as a farm raid (`farm`).
+  - "Icons" takes the army markers, the marching crowds and the command dots off the map; the villages stay (they are
+    the map's content, not an army's icon), and so do the route lines and their arrows, so the map reads as terrain,
+    villages and routes. With icons off the markers are not rendered at all, so their animation loop stops too.
+  - "Own attacks" (`ownAttack`, `ownReturn`, `ownIntercept`) — the player's attacks and the armies coming home from them.
+  - "Nearby armies" (`passingAttack`, `passingReturn`) — other players' armies passing within sight of the player's
+    villages.
+  - "Support" (`ownSupport`, `incomingSupport`, `passingSupport`) — support on its way, whoever sent it.
+  - "Merchants" (`trade`) — the player's merchants on the road.
+  An attack on the player (`incomingAttack`) and a threat to their armies (`threat`) have no toggle: no layer switch
+  ever hides an attack on the player. The command dots are not a layer either — "Icons" is what takes them off.
 
 ## Market
 

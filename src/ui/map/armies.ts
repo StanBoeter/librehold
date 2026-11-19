@@ -59,6 +59,22 @@ export const TORCH_KINDS: ReadonlySet<ArmyKind> = new Set(['incomingAttack', 'th
 /** Other players' armies the player may meet on the road. */
 export const INTERCEPTABLE_KINDS: ReadonlySet<ArmyKind> = new Set(['incomingAttack', 'incomingSupport', 'passingAttack', 'passingSupport', 'passingReturn']);
 
+/**
+ * Other players' armies seen passing within sight of the player's villages. Attacks on the player and threats to
+ * their armies are not "nearby": they are shown whatever the player chooses, so hiding these never hides an attack
+ * that is their own.
+ */
+export const NEARBY_KINDS: ReadonlySet<ArmyKind> = new Set(['passingAttack', 'passingReturn']);
+
+/** The player's own armies on the warpath, and the ones coming home from it. */
+export const OWN_ATTACK_KINDS: ReadonlySet<ArmyKind> = new Set(['ownAttack', 'ownReturn', 'ownIntercept']);
+
+/** Support on its way, whoever sent it. */
+export const SUPPORT_KINDS: ReadonlySet<ArmyKind> = new Set(['ownSupport', 'incomingSupport', 'passingSupport']);
+
+/** Merchants on the road. */
+export const MERCHANT_KINDS: ReadonlySet<ArmyKind> = new Set(['trade']);
+
 /** Whether a foreign army is within sight of one of the player's villages now (the server sends only those). */
 function inSight(g: GameState, c: Command, mine: ReadonlySet<string>): boolean {
   const at = positionAt(c, g.now);
@@ -114,6 +130,29 @@ export function armiesOnMap(g: GameState): MapArmy[] {
     if (a) out.push(a);
   }
   return out;
+}
+
+/** The layers a player may switch off on the map; anything not named here is always shown. */
+export interface ArmyLayers {
+  nearby: boolean;
+  ownAttacks: boolean;
+  support: boolean;
+  merchants: boolean;
+}
+
+export const ALL_ARMY_LAYERS: ArmyLayers = { nearby: true, ownAttacks: true, support: true, merchants: true };
+
+/** The armies the map draws: the layers the player switched off are left out, nothing else changes. */
+export function withArmyLayers(armies: MapArmy[], layers: ArmyLayers): MapArmy[] {
+  if (layers.nearby && layers.ownAttacks && layers.support && layers.merchants) return armies;
+  return armies.filter((a) => {
+    const kind = a.kind;
+    if (!layers.nearby && NEARBY_KINDS.has(kind)) return false;
+    if (!layers.ownAttacks && OWN_ATTACK_KINDS.has(kind)) return false;
+    if (!layers.support && SUPPORT_KINDS.has(kind)) return false;
+    if (!layers.merchants && MERCHANT_KINDS.has(kind)) return false;
+    return true;
+  });
 }
 
 export function armyPosition(a: MapArmy, now: number): { x: number; y: number; p: number } {

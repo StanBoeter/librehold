@@ -92,21 +92,23 @@ function segmentInView(ax: number, ay: number, bx: number, by: number, width: nu
 
 export interface ArmyViewport {
   x0: number; y0: number; offX: number; offY: number; tw: number; th: number; width: number; height: number;
+  /** The markers, the marching crowds and the counts; off leaves the route lines and their arrows only. */
+  icons?: boolean;
   onSelect: (armyId: string) => void; isDragging: () => boolean;
 }
 
 /** Armies on the tile map: route lines, markers and the marching crowds, from whatever source draws them. */
-export function ArmyLayerView({ armies, seed, isVillage, mode, clock, x0, y0, offX, offY, tw, th, width, height, onSelect, isDragging }: ArmyViewport & {
+export function ArmyLayerView({ armies, seed, isVillage, mode, clock, x0, y0, offX, offY, tw, th, width, height, icons = true, onSelect, isDragging }: ArmyViewport & {
   armies: MapArmy[]; seed: number; isVillage: (x: number, y: number) => boolean; mode: AnimationMode; clock: ArmyClock;
 }) {
   const t = useT();
   const toPx = useMemo<ToPx>(() => (x, y) => [(x - x0) * tw - offX, (y - y0) * th - offY], [x0, y0, offX, offY, tw, th]);
-  const bind = useArmyLoop(armies, toPx, mode, seed, clock, isVillage);
+  const bind = useArmyLoop(armies, toPx, mode, seed, clock, isVillage, icons);
   if (armies.length === 0) return null;
   const now = clock.now();
   return (
     <>
-    {mode !== 'off' && tw >= MAP.crowdMinTileW && (
+    {icons && mode !== 'off' && tw >= MAP.crowdMinTileW && (
       <CrowdCanvas armies={armies} toPx={toPx} tw={tw} th={th} width={width} height={height} seed={seed} isVillage={isVillage} mode={mode} clock={clock} />
     )}
     <svg className="absolute inset-0 pointer-events-none" width={width} height={height} data-army-layer>
@@ -129,24 +131,26 @@ export function ArmyLayerView({ armies, seed, isVillage, mode, clock, x0, y0, of
               stroke={style.color} strokeWidth={style.width} strokeDasharray={style.dash} opacity="0.85"
               markerEnd={`url(#army-arrow-${a.kind})`}
             />
-            <g
-              ref={bind(a.id)}
-              data-marker
-              data-boat={s.boat ? '' : undefined}
-              transform={`translate(${s.px}, ${s.py})`}
-              style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-              onClick={(e) => { if (isDragging()) return; e.stopPropagation(); onSelect(a.id); }}
-            >
-              <title>{t(`map.army.${a.kind}`)}</title>
-              <circle r={12} fill="transparent" />
-              <g data-icon>
-                <circle r={10} fill="#f4e4bc" stroke={style.color} strokeWidth={1.5} />
-                <g data-land display={s.boat ? 'none' : 'inline'}><ArmyIcon army={a} /></g>
-                <g data-water display={s.boat ? 'inline' : 'none'}><Boat army={a} /></g>
+            {icons && (
+              <g
+                ref={bind(a.id)}
+                data-marker
+                data-boat={s.boat ? '' : undefined}
+                transform={`translate(${s.px}, ${s.py})`}
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                onClick={(e) => { if (isDragging()) return; e.stopPropagation(); onSelect(a.id); }}
+              >
+                <title>{t(`map.army.${a.kind}`)}</title>
+                <circle r={12} fill="transparent" />
+                <g data-icon>
+                  <circle r={10} fill="#f4e4bc" stroke={style.color} strokeWidth={1.5} />
+                  <g data-land display={s.boat ? 'none' : 'inline'}><ArmyIcon army={a} /></g>
+                  <g data-water display={s.boat ? 'inline' : 'none'}><Boat army={a} /></g>
+                </g>
+                {a.units && !FOREIGN_KINDS.has(a.kind) && <Counts units={a.units} />}
+                <text data-eta textAnchor="middle" y={21} fontSize={9} fill="#2e1a05" stroke="#f4e4bc" strokeWidth={2} paintOrder="stroke">{s.eta}</text>
               </g>
-              {a.units && !FOREIGN_KINDS.has(a.kind) && <Counts units={a.units} />}
-              <text data-eta textAnchor="middle" y={21} fontSize={9} fill="#2e1a05" stroke="#f4e4bc" strokeWidth={2} paintOrder="stroke">{s.eta}</text>
-            </g>
+            )}
           </g>
         );
       })}

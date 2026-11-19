@@ -36,17 +36,19 @@ export interface TileArtProps {
   /** `owner` picks the sprite (player or barbarian); `ownerColor` colours other players' roofs. */
   village?: PixelVillageProps['village'];
   dot?: 'i' | 'a' | 's' | 'r' | 't';
+  /** Off leaves out the command dot on the tile. The village itself is not an icon of an army and stays. */
+  icons?: boolean;
   tw: number;
   th: number;
 }
 
 const DOT_COLOR = { i: '#ff2d2d', a: '#a33a2a', s: '#2f5fa8', r: '#4c8f2f', t: '#d4af37' } as const;
 
-export function TileArt({ village, dot, tw, th }: TileArtProps) {
+export function TileArt({ village, dot, icons = true, tw, th }: TileArtProps) {
   return (
     <div style={{ position: 'relative', width: tw, height: th }} aria-hidden>
       {village && <PixelVillage village={village} tw={tw} th={th} />}
-      {dot && (
+      {icons && dot && (
         <svg width={tw} height={th} viewBox="0 0 53 38" style={{ position: 'absolute', inset: 0 }}>
           <circle cx="6" cy="6" r="3.2" fill={DOT_COLOR[dot]} stroke={INK} strokeWidth="0.8" />
         </svg>
