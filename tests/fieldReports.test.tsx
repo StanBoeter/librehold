@@ -126,7 +126,7 @@ describe("field battle reports", () => {
     expect(document.body.textContent).toContain("120");
   });
 
-  it("shows the army in the Tribal Wars layout: icons across the top, Quantity and Losses rows", async () => {
+  it("shows the army with icons across the top, and Quantity and Losses rows", async () => {
     await open(fieldReport({}));
     // One table per side: a header row of unit icons, then a Quantity row and a Losses row.
     const tables = document.querySelectorAll("table.table-units");
@@ -283,20 +283,58 @@ describe("field battle reports", () => {
     expect(document.body.textContent).not.toContain("(0|0)");
   });
 
-  it("a wiped-out side is not shown what killed it", async () => {
-    // The server withholds the hidden side entirely, so the report carries no army there: the view has to say so
-    // instead of drawing an empty table. The defender's 50 is still readable — only the hidden side is gone.
+  it("a hidden side does not name its units in the narrowed columns", async () => {
+    // The attacker brought catapults, but the reader was wiped out and may not see them. The narrowed table must
+    // only offer the units of the side the reader can actually see.
     await open(
       fieldReport({
         attackerHidden: true,
-        attacker: { units: { axe: 777 }, losses: { axe: 777 } },
+        attacker: { units: { catapult: 2 }, losses: { catapult: 2 } },
+        defender: { units: { axe: 5 }, losses: {} },
       }),
     );
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Only units in this battle" }),
+    );
+    expect(screen.queryByRole("img", { name: "Catapult" })).toBeNull();
+    expect(screen.getAllByRole("img", { name: "Axeman" })).toHaveLength(1);
+  });
+
+  it('keeps the "only units in this battle" choice in the saved preferences', async () => {
+    // The choice lives in UiPrefs, so it survives a reload instead of resetting to the phone default.
+    useUiStore.getState().setPrefs({ reportsCompactUnits: true });
+    await open(fieldReport({}));
+    const box = screen.getByRole("checkbox", {
+      name: "Only units in this battle",
+    }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
     expect(
-      screen.getByText(/nobody came back to count the enemy/),
-    ).toBeTruthy();
-    expect(document.body.textContent).not.toContain("777");
-    expect(document.body.textContent).toContain("50");
+      document.querySelectorAll("table.table-units thead th"),
+    ).toHaveLength(3 * 2);
+    useUiStore.getState().setPrefs({ reportsCompactUnits: false });
+  });
+
+  it("colours the result bar by the reader: a defender who lost sees the loss colour", async () => {
+    // Same report read by the defender: the attacker won, which is a green bar for the attacker and a red one here.
+    await open(
+      fieldReport({
+        outcome: "attackerWon",
+        target: { ...reportVillageOf(g, bot.id), ownerId: "human" },
+      }),
+    );
+    const bar = document.querySelector(".report-bar")!;
+    expect(bar.classList.contains("panel-header-loss")).toBe(true);
+    expect(bar.classList.contains("report-bar-ok")).toBe(false);
+  });
+
+  it("keeps the space between the loot total and the full-load note", async () => {
+    await open(
+      fieldReport({
+        haul: { wood: 1000, clay: 0, iron: 0 },
+        haulCapacity: 1000,
+      }),
+    );
+    expect(document.body.textContent).toContain("1,000 / 1,000 — full load");
   });
 
   it("caught scouts are told nothing of the garrison, in words that fit scouting", async () => {
@@ -388,5 +426,34 @@ describe("field battle reports", () => {
     );
     expect(screen.queryByText(/were counted by the attacker/)).toBeNull();
     expect(screen.queryByText(/learned nothing of your troops/)).toBeNull();
+  });
+});
+
+describe("a caught scouting party", () => {
+  // The report carries no garrison, and the view has to say so in words: without this the army table is drawn with
+  // every column at zero, which reads as "the village is empty" rather than "the scouts never got to look".
+  it("says the scouts were caught instead of drawing an empty army table", async () => {
+    await open({
+      id: `r${g.reports.length + 1}`,
+      time: g.now,
+      type: "scout",
+      originId: home.id,
+      targetId: bot.id,
+      origin: reportVillageOf(g, home.id),
+      target: reportVillageOf(g, bot.id),
+      attacker: { units: { scout: 3 }, losses: { scout: 3 } },
+      defender: { units: {}, losses: {} },
+      defenderHidden: true,
+      luck: 0,
+      morale: 1,
+      wallBefore: 0,
+      wallAfter: 0,
+      outcome: "defenderWon",
+      read: false,
+    });
+    expect(
+      screen.getByText(/Your scouts were caught before they could look/i),
+    ).toBeTruthy();
+    expect(screen.queryByText(/^no units$/i)).toBeNull();
   });
 });

@@ -10,6 +10,7 @@ import { AutoFarmTag, BotTag } from "../components/BotTag";
 import {
   RESOURCES,
   UNIT_IDS,
+  HUMAN_ID,
   type MarketReport,
   type Report,
   type ReportType,
@@ -28,9 +29,8 @@ import { canCancelCommand } from "../../engine/commands";
 type Filter = "all" | ReportType | "unread";
 
 /**
- * One side of a battle, laid out the way Tribal Wars does it: a red section bar with the side's name, a labelled line
- * naming the village it came from (or went to), then a table whose first column holds the row labels and whose
- * remaining columns are the unit icons.
+ * One side of a battle: a red section bar with the side's name, a labelled line naming the village it came from (or
+ * went to), then a table whose first column holds the row labels and whose remaining columns are the unit icons.
  *
  * Both sides are handed the same `units` list, so their tables line up column for column. By default that is all
  * twelve unit types in a fixed order, so a row never shifts under the eye between reports; the reader can narrow it
@@ -264,8 +264,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   );
   const r = JSON.parse(json) as Report | null;
   const openRally = useUiStore((s) => s.openRally);
-  const compactUnits = useUiStore((s) => s.reportsCompactUnits);
-  const setCompactUnits = useUiStore((s) => s.setReportsCompactUnits);
+  const compactUnits = useUiStore((s) => s.prefs.reportsCompactUnits);
+  const setPrefs = useUiStore((s) => s.setPrefs);
   const sendTemplate = useGameStore((s) => s.sendTemplate);
   const deleteReport = useGameStore((s) => s.deleteReport);
   const villages = useGameStore((s) => s.game!.villages);
@@ -311,17 +311,23 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
     ty !== undefined &&
     !(target && isHumanVillage(target));
   const haulSum = r.haul ? r.haul.wood + r.haul.clay + r.haul.iron : 0;
-  const won = r.outcome === "attackerWon";
+  // The bar reads as won or lost for whoever is reading: a defender who watched his village fall must not see the
+  // winner's green. A report always arrives on one side, so the reader is the side whose village is in it.
+  const readAsDefender = r.target.ownerId === HUMAN_ID;
+  const lost = readAsDefender
+    ? r.outcome === "attackerWon"
+    : r.outcome === "defenderWon";
 
-  // The units this battle actually used, from both sides' troops and losses. A side the reader may not see still
-  // claims its columns: its army is hidden from him, not missing from the fight.
+  // The units this battle actually used, from the visible sides' troops and losses. A hidden side contributes
+  // nothing — otherwise its column would still hint at what the enemy brought, which is the whole point of hiding it.
+  const visibleSides = [
+    r.attackerHidden ? null : r.attacker,
+    r.defenderHidden ? null : r.defender,
+  ].filter((side): side is Report["attacker"] => side !== null);
   const usedUnits = UNIT_IDS.filter((u) =>
-    [
-      r.attacker.units[u],
-      r.attacker.losses[u],
-      r.defender.units[u],
-      r.defender.losses[u],
-    ].some((n) => (n ?? 0) > 0),
+    visibleSides.some(
+      (side) => (side.units[u] ?? 0) > 0 || (side.losses[u] ?? 0) > 0,
+    ),
   );
   const canNarrow = usedUnits.length > 0 && usedUnits.length < UNIT_IDS.length;
   const columns = compactUnits && canNarrow ? usedUnits : UNIT_IDS;
@@ -377,7 +383,9 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <input
               type="checkbox"
               checked={compactUnits}
-              onChange={(e) => setCompactUnits(e.target.checked)}
+              onChange={(e) =>
+                setPrefs({ reportsCompactUnits: e.target.checked })
+              }
             />
             {t("reports.onlyUsedUnits")}
           </label>
@@ -392,12 +400,13 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
           {t("reports.delete")}
         </button>
       </div>
-      {/* One card, the way Tribal Wars does it: red section bars inside a single frame. */}
+      {/* One card: red section bars inside a single frame. */}
       <div className="report-card">
-        <div className={`report-bar ${won ? "report-bar-ok" : ""}`}>
+        <div
+          className={`report-bar ${lost ? "panel-header-loss" : "report-bar-ok"}`}
+        >
           {resultText(r)}
         </div>
-
         <div className="px-2 py-1.5 space-y-1">
           {r.field ? (
             <div>{t("reports.field.at", { at: fieldPlace(r) })}</div>
@@ -463,11 +472,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
         {/* What the attack actually did: loot, loyalty, and the damage done inside the village. Each is a full-width
             red label bar with its contents on the lines below, and wraps freely — no clipping, no sideways scrolling.
             Wall and building damage share one bar: both are damage to what the defender built. */}
-        {/* An army whose village was conquered carries nothing home: say so, rather than show an empty haul. */}
-        {!r.haul && r.noHome && (
-          <div className="panel p-2">{t("reports.noHome")}</div>
-        )}
         {(r.haul ||
+          r.noHome ||
           r.loyaltyBefore !== undefined ||
           r.wallBefore !== r.wallAfter ||
           r.buildingDamage) && (
@@ -487,12 +493,17 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
                   ))}
                   <span className="text-muted">
                     {formatNumber(haulSum)} /{" "}
-                    {formatNumber(r.haulCapacity ?? 0)}
+                    {formatNumber(r.haulCapacity ?? 0)}{" "}
                     {r.haulCapacity && haulSum >= r.haulCapacity
                       ? t("reports.fullLoad")
                       : t("reports.partialLoot")}
                   </span>
                 </div>
+              </div>
+            )}
+            {!r.haul && r.noHome && (
+              <div className="border-t border-wood-border/40 px-2 py-1">
+                {t("reports.noHome")}
               </div>
             )}
             {r.loyaltyBefore !== undefined && (

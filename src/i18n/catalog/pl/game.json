@@ -1047,7 +1047,6 @@
     "retry": "Ponów atak (ten sam skład)",
     "sendA": "Wyślij szablon A",
     "delete": "Usuń",
-    "result": "Wynik:",
     "conquered": "Wioska podbita!",
     "scoutOk": "Zwiad udany",
     "scoutFail": "Zwiad nieudany",
@@ -1093,6 +1092,7 @@
       "missed": "twoje wojsko nikogo nie zastało: armii już nie było.",
       "scouted": "Zbadana armia:"
     },
+
     "market": {
       "title": "Umowa handlowa",
       "offers": " · {n} ofert rozliczonych razem",
@@ -1106,6 +1106,8 @@
     "origin": "Skąd:",
     "destination": "Dokąd:",
     "armyUnknown": "Twoje wojsko zostało zniszczone i nikt nie wrócił, by policzyć wroga. Jego siły są nieznane.",
+
+    "scoutUnknown": "Twoi zwiadowcy zostali schwytani, zanim zdążyli się rozejrzeć. Nie wiadomo, co im się postawiło.",
     "battleAt": "Bitwa pod {at}",
     "buildings": "Budynki:",
     "fromTo": "z {from} na {to}",

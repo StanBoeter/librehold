@@ -1013,7 +1013,6 @@
     "retry": "Repeat the attack (same troops)",
     "sendA": "Send template A",
     "delete": "Delete",
-    "result": "Result:",
     "conquered": "Village conquered!",
     "scoutOk": "Scouting succeeded",
     "scoutFail": "Scouting failed",
@@ -1059,6 +1058,7 @@
       "missed": "your troops found nothing: the army was gone.",
       "scouted": "Scouted army:"
     },
+
     "market": {
       "title": "Market deal",
       "offers": " · {n} offers settled together",
@@ -1072,6 +1072,8 @@
     "origin": "Origin:",
     "destination": "Destination:",
     "armyUnknown": "Your army was wiped out, and nobody came back to count the enemy. Their troops are unknown.",
+
+    "scoutUnknown": "Your scouts were caught before they could look. What stood against them is unknown.",
     "battleAt": "Battle at {at}",
     "buildings": "Buildings:",
     "fromTo": "from {from} to {to}",

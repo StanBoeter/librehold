@@ -55,6 +55,11 @@ export interface UiPrefs {
   showBuildPlan: boolean;
   /** Buildings that are not yet available are listed on the Village tab; the Town Hall always lists them. */
   showLockedBuildings: boolean;
+  /**
+   * Battle reports: show only the unit types the battle used, instead of all twelve. Remembered like the other
+   * preferences, so it survives a reload; a phone starts with it on, where twelve columns do not fit.
+   */
+  reportsCompactUnits: boolean;
 }
 
 /**
@@ -88,6 +93,7 @@ function defaultPrefs(): UiPrefs {
     mapToolbarOpen: true,
     showBuildPlan: true,
     showLockedBuildings: true,
+    reportsCompactUnits: narrowScreen(),
   };
 }
 
