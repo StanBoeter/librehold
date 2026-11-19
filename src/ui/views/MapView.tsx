@@ -1,40 +1,62 @@
-import { t as tr, useT } from '../../i18n/i18n';
-import { COMMAND_ICON } from '../villageName';
-import { PixelIcon } from '../pixelIcons';
-import { RichText } from '../components/RichText';
-import { villageName } from '../../i18n/names';
-import { BotTag } from '../components/BotTag';
-import { unitName } from '../../i18n/names';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { MAP } from '../../data/world.config';
-import { UNITS } from '../../data/units.data';
-import { travelTimeMs } from '../../engine/commands';
-import { distance, type TileInfo } from '../../engine/world';
-import { tileAt } from '../map/tiles';
-import { HUMAN_ID, RESOURCES } from '../../engine/types';
-import { mapCache, selectActiveVillage, useGameStore, type GameStore } from '../../state/gameStore';
-import { useUiStore } from '../../state/uiStore';
-import { formatCoords, formatDuration, formatDurationHuman, formatNumber } from '../format';
-import { useClock } from '../useClock';
-import { loyaltyAt, noblesNeededFor } from '../../engine/conquest';
-import { UnitCountList } from '../components/UnitCountList';
-import { PopIcon, ResourceIcon } from '../components/ResourceIcon';
-import { Countdown } from '../components/Countdown';
-import type { VillageIntel, WorldConfig } from '../../engine/types';
-import { isOwnCommand, playerCommands } from '../../engine/commands';
-import { armiesOnMap, hiddenFarm, withArmyLayers, type ArmyLayers, type MapArmy } from '../map/armies';
-import { gameArmyClock } from '../map/gameArmyClock';
-import { TileMap, ZOOM_MAX, type Dot, type TileMapView } from '../map/TileMap';
-import { ArmyCard } from '../map/ArmyCard';
-import { villageSizeLabel, villageSize } from '../map/MapArt';
-import { bonusLabel } from '../map/villageInfo';
-import { MapHoverCard, type MapHover } from '../map/MapHoverCard';
-import { VillageQuickActions } from '../map/VillageQuickActions';
-import { villageInfo, type VillageInfo } from '../map/villageInfo';
-import { isHumanVillage, humanVillageIds } from '../../engine/players';
-import { NumberInput } from '../../shared/NumberInput';
-
+import { t as tr, useT } from "../../i18n/i18n";
+import { COMMAND_ICON } from "../villageName";
+import { PixelIcon } from "../pixelIcons";
+import { RichText } from "../components/RichText";
+import { villageName } from "../../i18n/names";
+import { BotTag } from "../components/BotTag";
+import { unitName } from "../../i18n/names";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useShallow } from "zustand/react/shallow";
+import { MAP } from "../../data/world.config";
+import { UNITS } from "../../data/units.data";
+import { travelTimeMs } from "../../engine/commands";
+import { distance, type TileInfo } from "../../engine/world";
+import { tileAt } from "../map/tiles";
+import { HUMAN_ID, RESOURCES } from "../../engine/types";
+import {
+  mapCache,
+  selectActiveVillage,
+  useGameStore,
+  type GameStore,
+} from "../../state/gameStore";
+import { useUiStore } from "../../state/uiStore";
+import {
+  formatCoords,
+  formatDuration,
+  formatDurationHuman,
+  formatNumber,
+} from "../format";
+import { useClock } from "../useClock";
+import { loyaltyAt, noblesNeededFor } from "../../engine/conquest";
+import { UnitCountList } from "../components/UnitCountList";
+import { PopIcon, ResourceIcon } from "../components/ResourceIcon";
+import { Countdown } from "../components/Countdown";
+import type { VillageIntel, WorldConfig } from "../../engine/types";
+import { isOwnCommand, playerCommands } from "../../engine/commands";
+import {
+  armiesOnMap,
+  hiddenFarm,
+  withArmyLayers,
+  type ArmyLayers,
+  type MapArmy,
+} from "../map/armies";
+import { gameArmyClock } from "../map/gameArmyClock";
+import { TileMap, ZOOM_MAX, type Dot, type TileMapView } from "../map/TileMap";
+import { ArmyCard } from "../map/ArmyCard";
+import { villageSizeLabel, villageSize } from "../map/MapArt";
+import { bonusLabel } from "../map/villageInfo";
+import { MapHoverCard, type MapHover } from "../map/MapHoverCard";
+import { VillageQuickActions } from "../map/VillageQuickActions";
+import { villageInfo, type VillageInfo } from "../map/villageInfo";
+import { isHumanVillage, humanVillageIds } from "../../engine/players";
+import { NumberInput } from "../../shared/NumberInput";
 
 /** Selector: a compact summary of materialised villages — it changes rarely, so the map doesn't re-render every tick. */
 const selectVillageSummary = (s: GameStore): string => {
@@ -519,8 +541,15 @@ function SidePanel({
     const nowMs = s.game!.now;
     return JSON.stringify({
       intel: v.intel ?? null,
-      lastFarmedAgo: v.lastFarmedAt !== undefined ? nowMs - v.lastFarmedAt : null,
-      loyalty: v.intel ? loyaltyAt({ ...v, loyalty: v.intel.loyalty, loyaltyUpdatedAt: v.intel.at }, nowMs, s.game!.config.unitSpeed) : null,
+      lastFarmedAgo:
+        v.lastFarmedAt !== undefined ? nowMs - v.lastFarmedAt : null,
+      loyalty: v.intel
+        ? loyaltyAt(
+            { ...v, loyalty: v.intel.loyalty, loyaltyUpdatedAt: v.intel.at },
+            nowMs,
+            s.game!.config.unitSpeed,
+          )
+        : null,
       owned: v.ownerId !== null,
       config: s.game!.config,
     });
@@ -717,7 +746,6 @@ function SidePanel({
   );
 }
 
-
 /**
  * The map's whole toolbar, in a bar over the map rather than along its header: where the player is looking (my village,
  * zoom, go to coordinates) and what is drawn there (the army layers, the icons, the players' colours and the size of
@@ -725,9 +753,16 @@ function SidePanel({
  * remembered preference.
  */
 function MapDisplayPanel(p: {
-  colors: boolean; onColors: (on: boolean) => void; maxPoints: number; onMaxPoints: (n: number) => void;
-  onMyVillage: () => void; zoomIdx: number; onZoom: (delta: number) => void;
-  goto: string; onGoto: (v: string) => void; onGo: (x: number, y: number) => void;
+  colors: boolean;
+  onColors: (on: boolean) => void;
+  maxPoints: number;
+  onMaxPoints: (n: number) => void;
+  onMyVillage: () => void;
+  zoomIdx: number;
+  onZoom: (delta: number) => void;
+  goto: string;
+  onGoto: (v: string) => void;
+  onGo: (x: number, y: number) => void;
 }) {
   const { colors, onColors, maxPoints, onMaxPoints } = p;
   const icons = useUiStore((s) => s.prefs.mapIcons);
@@ -739,15 +774,30 @@ function MapDisplayPanel(p: {
   const open = useUiStore((s) => s.prefs.mapToolbarOpen);
   const showFarm = useGameStore((s) => !s.game!.farmAssistant.hideOnMap);
   const hideFarm = useGameStore((s) => s.hideFarmOnMap);
-  const box = (checked: boolean, onChange: (on: boolean) => void, label: string, hint: string) => (
+  const box = (
+    checked: boolean,
+    onChange: (on: boolean) => void,
+    label: string,
+    hint: string,
+  ) => (
     <label className="inline-flex items-center gap-1" title={hint}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> {label}
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />{" "}
+      {label}
     </label>
   );
   return (
-    <fieldset className={open ? 'panel px-2 py-1.5 text-[12px]' : 'w-fit ml-auto text-[12px]'} data-map-display>
+    <fieldset
+      className={
+        open ? "panel px-2 py-1.5 text-[12px]" : "w-fit ml-auto text-[12px]"
+      }
+      data-map-display
+    >
       {/* The switches say what they do; the legend stays as the fieldset's name for screen readers. */}
-      <legend className="sr-only">{tr('map.display')}</legend>
+      <legend className="sr-only">{tr("map.display")}</legend>
       {/* A bar this tall is a third of a phone screen, so it folds away. The switch is a plain glyph at the end of the
           row rather than a header of its own: a header would give back the space folding it saves. */}
       <div className="flex items-start gap-1.5">
@@ -757,9 +807,23 @@ function MapDisplayPanel(p: {
                 than a page-wide strip above it that reads as a leftover. The gaps are tight so the three groups still
                 sit on one line at 1280 px. */}
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-              <button className="btn" onClick={p.onMyVillage}>{tr('map.myVillage')}</button>
-              <button className="btn" onClick={() => p.onZoom(-1)} disabled={p.zoomIdx === 0}>＋</button>
-              <button className="btn" onClick={() => p.onZoom(1)} disabled={p.zoomIdx === ZOOM_MAX}>－</button>
+              <button className="btn" onClick={p.onMyVillage}>
+                {tr("map.myVillage")}
+              </button>
+              <button
+                className="btn"
+                onClick={() => p.onZoom(-1)}
+                disabled={p.zoomIdx === 0}
+              >
+                ＋
+              </button>
+              <button
+                className="btn"
+                onClick={() => p.onZoom(1)}
+                disabled={p.zoomIdx === ZOOM_MAX}
+              >
+                －
+              </button>
               <form
                 className="inline-flex items-center gap-1"
                 onSubmit={(e) => {
@@ -769,47 +833,97 @@ function MapDisplayPanel(p: {
                 }}
               >
                 <input
-                  className="w-14 px-1 border border-wood-border rounded bg-white/50" placeholder="x|y"
-                  value={p.goto} onChange={(e) => p.onGoto(e.target.value)}
+                  className="w-14 px-1 border border-wood-border rounded bg-white/50"
+                  placeholder="x|y"
+                  value={p.goto}
+                  onChange={(e) => p.onGoto(e.target.value)}
                 />
-                <button className="btn" type="submit">{tr('map.go')}</button>
+                <button className="btn" type="submit">
+                  {tr("map.go")}
+                </button>
               </form>
             </div>
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-              <span className="text-muted" title={tr('map.armiesHint')}>{tr('map.armies')}</span>
-              {box(ownAttacks, (on) => setPrefs({ mapOwnAttacks: on }), tr('map.showOwnAttacks'), tr('map.showOwnAttacksHint'))}
-              {box(nearby, (on) => setPrefs({ mapNearbyAttacks: on }), tr('map.showNearby'), tr('map.showNearbyHint'))}
-              {box(support, (on) => setPrefs({ mapSupport: on }), tr('map.showSupport'), tr('map.showSupportHint'))}
-              {box(merchants, (on) => setPrefs({ mapMerchants: on }), tr('map.showMerchants'), tr('map.showMerchantsHint'))}
-              {box(showFarm, (on) => void hideFarm(!on), tr('map.showFarm'), tr('map.showFarmHint'))}
+              <span className="text-muted" title={tr("map.armiesHint")}>
+                {tr("map.armies")}
+              </span>
+              {box(
+                ownAttacks,
+                (on) => setPrefs({ mapOwnAttacks: on }),
+                tr("map.showOwnAttacks"),
+                tr("map.showOwnAttacksHint"),
+              )}
+              {box(
+                nearby,
+                (on) => setPrefs({ mapNearbyAttacks: on }),
+                tr("map.showNearby"),
+                tr("map.showNearbyHint"),
+              )}
+              {box(
+                support,
+                (on) => setPrefs({ mapSupport: on }),
+                tr("map.showSupport"),
+                tr("map.showSupportHint"),
+              )}
+              {box(
+                merchants,
+                (on) => setPrefs({ mapMerchants: on }),
+                tr("map.showMerchants"),
+                tr("map.showMerchantsHint"),
+              )}
+              {box(
+                showFarm,
+                (on) => void hideFarm(!on),
+                tr("map.showFarm"),
+                tr("map.showFarmHint"),
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-              {box(icons, (on) => setPrefs({ mapIcons: on }), tr('map.showIcons'), tr('map.showIconsHint'))}
-              {box(colors, onColors, tr('map.playerColors'), tr('map.playerColorsHint'))}
-              <label className="inline-flex items-center gap-1" title={tr('map.hideOverHint')}>
-                {tr('map.hideOver')}
-                <NumberInput className="w-16 px-1 border border-wood-border rounded bg-white/50" min={0} value={maxPoints} onValue={onMaxPoints} />
-                {tr('map.ptsShort')}
+              {box(
+                icons,
+                (on) => setPrefs({ mapIcons: on }),
+                tr("map.showIcons"),
+                tr("map.showIconsHint"),
+              )}
+              {box(
+                colors,
+                onColors,
+                tr("map.playerColors"),
+                tr("map.playerColorsHint"),
+              )}
+              <label
+                className="inline-flex items-center gap-1"
+                title={tr("map.hideOverHint")}
+              >
+                {tr("map.hideOver")}
+                <NumberInput
+                  className="w-16 px-1 border border-wood-border rounded bg-white/50"
+                  min={0}
+                  value={maxPoints}
+                  onValue={onMaxPoints}
+                />
+                {tr("map.ptsShort")}
               </label>
             </div>
           </div>
         )}
         <button
-          className={open
-            ? 'btn !px-1.5 !py-0 !text-[11px] leading-4 shrink-0 ml-auto'
-            : 'btn !px-2 !py-0.5 !text-[12px] shrink-0'}
+          className={
+            open
+              ? "btn !px-1.5 !py-0 !text-[11px] leading-4 shrink-0 ml-auto"
+              : "btn !px-2 !py-0.5 !text-[12px] shrink-0"
+          }
           onClick={() => setPrefs({ mapToolbarOpen: !open })}
-          title={open ? tr('village.collapse') : tr('village.expand')}
+          title={open ? tr("village.collapse") : tr("village.expand")}
           aria-expanded={open}
           data-map-toolbar-toggle
         >
-          {open ? '−' : '+'}
+          {open ? "−" : "+"}
         </button>
       </div>
     </fieldset>
   );
 }
-
 
 /** The player's map: their world through the shared tile map, with the village menu, details and army card. */
 export function MapView() {
@@ -844,7 +958,10 @@ export function MapView() {
     [dotsJson],
   );
   const armiesJson = useGameStore((s) => JSON.stringify(armiesOnMap(s.game!)));
-  const allArmies = useMemo(() => JSON.parse(armiesJson) as MapArmy[], [armiesJson]);
+  const allArmies = useMemo(
+    () => JSON.parse(armiesJson) as MapArmy[],
+    [armiesJson],
+  );
   const showIcons = useUiStore((s) => s.prefs.mapIcons);
   const showNearby = useUiStore((s) => s.prefs.mapNearbyAttacks);
   const showOwnAttacks = useUiStore((s) => s.prefs.mapOwnAttacks);
@@ -852,11 +969,19 @@ export function MapView() {
   const showMerchants = useUiStore((s) => s.prefs.mapMerchants);
   const setPrefs = useUiStore((s) => s.setPrefs);
   const layers = useMemo<ArmyLayers>(
-    () => ({ nearby: showNearby, ownAttacks: showOwnAttacks, support: showSupport, merchants: showMerchants }),
+    () => ({
+      nearby: showNearby,
+      ownAttacks: showOwnAttacks,
+      support: showSupport,
+      merchants: showMerchants,
+    }),
     [showNearby, showOwnAttacks, showSupport, showMerchants],
   );
   /** Attacks on the player are their own and are never hidden by a layer toggle. */
-  const armies = useMemo(() => withArmyLayers(allArmies, layers), [allArmies, layers]);
+  const armies = useMemo(
+    () => withArmyLayers(allArmies, layers),
+    [allArmies, layers],
+  );
   const animations = useUiStore((s) => s.prefs.animations);
   const mapCenter = useUiStore((s) => s.mapCenter);
   const [center, setCenter] = useState<{ x: number; y: number }>(
@@ -868,7 +993,7 @@ export function MapView() {
   const [colors, setColors] = useState(true);
   const [details, setDetails] = useState(false);
   const [maxPoints, setMaxPoints] = useState(99999);
-  const [goto, setGoto] = useState('');
+  const [goto, setGoto] = useState("");
 
   useEffect(() => {
     if (mapCenter) setCenter({ x: mapCenter.x + 0.5, y: mapCenter.y + 0.5 });
@@ -955,10 +1080,27 @@ export function MapView() {
   return (
     <div>
       <TileMap
-        mapSize={mapSize} seed={seed} revision={`${mapRev}|${villageSummary}`} useTile={useTile} isVillage={isVillage}
-        dots={dots} activeId={active.id} minimapDots={minimapDots} armies={armies} clock={gameArmyClock} animations={animations}
-        center={center} onCenter={setCenter} zoomIdx={zoomIdx} onZoom={zoomBy} colors={colors} maxPoints={maxPoints} icons={showIcons}
-        selected={sel} onRegion={loadRegion} onHover={(h) => setHover.current(h)}
+        mapSize={mapSize}
+        seed={seed}
+        revision={`${mapRev}|${villageSummary}`}
+        useTile={useTile}
+        isVillage={isVillage}
+        dots={dots}
+        activeId={active.id}
+        minimapDots={minimapDots}
+        armies={armies}
+        clock={gameArmyClock}
+        animations={animations}
+        center={center}
+        onCenter={setCenter}
+        zoomIdx={zoomIdx}
+        onZoom={zoomBy}
+        colors={colors}
+        maxPoints={maxPoints}
+        icons={showIcons}
+        selected={sel}
+        onRegion={loadRegion}
+        onHover={(h) => setHover.current(h)}
         onSelectTile={(x, y, village) => {
           setSelArmy(null);
           if (!village) {
@@ -1005,14 +1147,29 @@ export function MapView() {
         )}
         above={
           <MapDisplayPanel
-            colors={colors} onColors={setColors} maxPoints={maxPoints} onMaxPoints={setMaxPoints}
-            onMyVillage={() => setCenter({ x: active.x + 0.5, y: active.y + 0.5 })}
-            zoomIdx={zoomIdx} onZoom={zoomBy}
-            goto={goto} onGoto={setGoto}
-            onGo={(x, y) => { setCenter(clampCenter({ x: x + 0.5, y: y + 0.5 })); setSel({ x, y }); setDetails(false); }}
+            colors={colors}
+            onColors={setColors}
+            maxPoints={maxPoints}
+            onMaxPoints={setMaxPoints}
+            onMyVillage={() =>
+              setCenter({ x: active.x + 0.5, y: active.y + 0.5 })
+            }
+            zoomIdx={zoomIdx}
+            onZoom={zoomBy}
+            goto={goto}
+            onGoto={setGoto}
+            onGo={(x, y) => {
+              setCenter(clampCenter({ x: x + 0.5, y: y + 0.5 }));
+              setSel({ x, y });
+              setDetails(false);
+            }}
           />
         }
-        side={sel && details ? <SidePanel sel={sel} onClose={() => setDetails(false)} /> : undefined}
+        side={
+          sel && details ? (
+            <SidePanel sel={sel} onClose={() => setDetails(false)} />
+          ) : undefined
+        }
       />
       <p className="text-muted text-[11px] mt-4">
         {tr("map.help1")} {tr("map.help2")} {tr("map.help3")}

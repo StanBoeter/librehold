@@ -198,7 +198,14 @@ export interface FieldReport {
   targetCommandId: string;
 }
 
-export type ReportType = 'attack' | 'support' | 'scout' | 'conquest' | 'field' | 'fieldScout' | 'market';
+export type ReportType =
+  | "attack"
+  | "support"
+  | "scout"
+  | "conquest"
+  | "field"
+  | "fieldScout"
+  | "market";
 
 export interface ReportSide {
   units: Partial<Record<UnitId, number>>;
@@ -470,8 +477,8 @@ export interface SideModifiers {
  */
 export type BarbarianModifiers = SideModifiers;
 
-export type BarbarianDensity = 'sparse' | 'normal' | 'dense';
-export type BattleLossMode = 'normal' | 'reduced';
+export type BarbarianDensity = "sparse" | "normal" | "dense";
+export type BattleLossMode = "normal" | "reduced";
 
 export interface WorldConfig {
   worldSpeed: number;

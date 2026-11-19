@@ -22,7 +22,7 @@ import type {
   VillageGroup,
   VillageIntel,
   WorldConfig,
-} from '../engine/types';
+} from "../engine/types";
 
 /** One player's knowledge of one village (the engine's Village.intel, farmTargetFlags and lastFarmedAt). */
 export interface Intel {

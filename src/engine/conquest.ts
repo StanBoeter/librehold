@@ -14,7 +14,10 @@ function msPerLoyaltyPoint(unitSpeed: number): number {
 
 /** Loyalty at `now` without mutation (for the UI). */
 export function loyaltyAt(v: Village, now: number, unitSpeed: number): number {
-  const points = Math.max(0, Math.floor((now - v.loyaltyUpdatedAt) / msPerLoyaltyPoint(unitSpeed)));
+  const points = Math.max(
+    0,
+    Math.floor((now - v.loyaltyUpdatedAt) / msPerLoyaltyPoint(unitSpeed)),
+  );
   return Math.min(CONQUEST_BALANCE.maxLoyalty, v.loyalty + points);
 }
 

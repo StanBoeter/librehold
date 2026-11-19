@@ -1,29 +1,34 @@
-import { buildingName, resourceName } from '../../i18n/names';
-import { t, useT } from '../../i18n/i18n';
-import { bonusLabel } from '../map/villageInfo';
-import { villageLabelOf } from '../villageName';
-import { useEffect } from 'react';
-import { BUILDINGS } from '../../data/buildings.data';
-import { villageProductionPerHour, villageStorageCapacity, villageFarmCapacity, villagePopulationUsed } from '../../engine/resources';
-import { loyaltyAt } from '../../engine/conquest';
-import { MS_PER_DAY } from '../../engine/types';
-import { ResourceIcon } from '../components/ResourceIcon';
-import { formatCoords } from '../format';
-import { RESOURCES, type BuildingId, type Resource } from '../../engine/types';
-import { selectActiveVillage, useGameStore } from '../../state/gameStore';
-import { selectConfig } from '../../state/selectors';
-import { useUiStore } from '../../state/uiStore';
-import { VillageScene } from '../scene/VillageScene';
-import { formatDurationHuman, formatNumber } from '../format';
-import { BuildQueuePanel } from './BuildQueuePanel';
-import { BuildingScreen } from './BuildingScreen';
-import { BuildingsTable } from './BuildingsTable';
-import { UnitsPanel } from './UnitsPanel';
-import { SidePanel } from '../components/SidePanel';
-import { MovementsSection } from './MovementsPanel';
-import { IncomingList } from '../components/IncomingList';
-import { ActivePlanNote, BuildPlanPanel } from './BuildPlanPanel';
-import { humanPlayer, humanVillageIds } from '../../engine/players';
+import { buildingName, resourceName } from "../../i18n/names";
+import { t, useT } from "../../i18n/i18n";
+import { bonusLabel } from "../map/villageInfo";
+import { villageLabelOf } from "../villageName";
+import { useEffect } from "react";
+import { BUILDINGS } from "../../data/buildings.data";
+import {
+  villageProductionPerHour,
+  villageStorageCapacity,
+  villageFarmCapacity,
+  villagePopulationUsed,
+} from "../../engine/resources";
+import { loyaltyAt } from "../../engine/conquest";
+import { MS_PER_DAY } from "../../engine/types";
+import { ResourceIcon } from "../components/ResourceIcon";
+import { formatCoords } from "../format";
+import { RESOURCES, type BuildingId, type Resource } from "../../engine/types";
+import { selectActiveVillage, useGameStore } from "../../state/gameStore";
+import { selectConfig } from "../../state/selectors";
+import { useUiStore } from "../../state/uiStore";
+import { VillageScene } from "../scene/VillageScene";
+import { formatDurationHuman, formatNumber } from "../format";
+import { BuildQueuePanel } from "./BuildQueuePanel";
+import { BuildingScreen } from "./BuildingScreen";
+import { BuildingsTable } from "./BuildingsTable";
+import { UnitsPanel } from "./UnitsPanel";
+import { SidePanel } from "../components/SidePanel";
+import { MovementsSection } from "./MovementsPanel";
+import { IncomingList } from "../components/IncomingList";
+import { ActivePlanNote, BuildPlanPanel } from "./BuildPlanPanel";
+import { humanPlayer, humanVillageIds } from "../../engine/players";
 
 const RESOURCE_BUILDING: Record<Resource, BuildingId> = {
   wood: "wood",
@@ -95,11 +100,18 @@ function ParamsPanel() {
     const g = s.game!;
     const v = selectActiveVillage(s);
     return JSON.stringify({
-      worldSpeed: g.config.worldSpeed, unitSpeed: g.config.unitSpeed,
-      pop: villagePopulationUsed(v, g), popMax: villageFarmCapacity(v), storage: villageStorageCapacity(v),
-      loyalty: Math.round(loyaltyAt(v, g.now, g.config.unitSpeed)), bonus: v.bonus?.kind ?? null,
-      protectedMs: Math.max(0, humanPlayer(g).protectedUntil - g.now), villages: humanVillageIds(g).length, coords: [v.x, v.y] as [number, number],
-      day: Math.floor(g.now / MS_PER_DAY) + 1, lossMode: g.config.battleLosses,
+      worldSpeed: g.config.worldSpeed,
+      unitSpeed: g.config.unitSpeed,
+      pop: villagePopulationUsed(v, g),
+      popMax: villageFarmCapacity(v),
+      storage: villageStorageCapacity(v),
+      loyalty: Math.round(loyaltyAt(v, g.now, g.config.unitSpeed)),
+      bonus: v.bonus?.kind ?? null,
+      protectedMs: Math.max(0, humanPlayer(g).protectedUntil - g.now),
+      villages: humanVillageIds(g).length,
+      coords: [v.x, v.y] as [number, number],
+      day: Math.floor(g.now / MS_PER_DAY) + 1,
+      lossMode: g.config.battleLosses,
     });
   });
   useT();
@@ -221,7 +233,7 @@ export function VillageView() {
         <IncomingList villageId={activeId} />
         <BuildQueuePanel />
         {!showBuildPlan && (
-          <ActivePlanNote onOpenTownHall={() => open('main')} />
+          <ActivePlanNote onOpenTownHall={() => open("main")} />
         )}
         <BuildingsTable onOpen={open} focus={focus} showLocked={showLocked} />
         <MovementsSection />

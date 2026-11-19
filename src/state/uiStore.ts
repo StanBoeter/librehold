@@ -62,18 +62,32 @@ export interface UiPrefs {
  * units the battle used, so nothing has to be scrolled sideways.
  */
 function narrowScreen(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(max-width: 600px)').matches;
+  return (
+    typeof matchMedia === "function" && matchMedia("(max-width: 600px)").matches
+  );
 }
 
 const PREFS_KEY = "lh-ui-prefs";
 
 function defaultPrefs(): UiPrefs {
-  const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced =
+    typeof matchMedia === "function" &&
+    matchMedia("(prefers-reduced-motion: reduce)").matches;
   return {
-    animations: reduced ? 'limited' : 'full', sound: false, showScene: true, lockedOpen: true,
-    movementsCollapsed: false, movementsHideAutoFarm: false,
-    mapIcons: true, mapNearbyAttacks: true, mapOwnAttacks: true, mapSupport: true, mapMerchants: true, mapToolbarOpen: true,
-    showBuildPlan: true, showLockedBuildings: true,
+    animations: reduced ? "limited" : "full",
+    sound: false,
+    showScene: true,
+    lockedOpen: true,
+    movementsCollapsed: false,
+    movementsHideAutoFarm: false,
+    mapIcons: true,
+    mapNearbyAttacks: true,
+    mapOwnAttacks: true,
+    mapSupport: true,
+    mapMerchants: true,
+    mapToolbarOpen: true,
+    showBuildPlan: true,
+    showLockedBuildings: true,
   };
 }
 

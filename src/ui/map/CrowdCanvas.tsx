@@ -1,13 +1,25 @@
-import { useEffect, useRef } from 'react';
-import type { AnimationMode } from '../../state/uiStore';
-import { pixelIcon } from '../pixelIcons';
-import { useDocumentHidden } from '../useDocumentHidden';
-import { facing } from '../scene/pixel/path';
-import { CROWD, FOREIGN_KINDS, TORCH_KINDS, armyPosition, crowdOf, crowdReach, crowdShare, crowdSpacing, groundAt, leadUnit, type MapArmy } from './armies';
-import { armySprite, boatSprite, type Walk } from './armySprites';
-import { crowdLayout, type CrowdUnit } from './crowdLayout';
-import type { ArmyClock } from './armyClock';
-import type { ToPx } from './useArmyLoop';
+import { useEffect, useRef } from "react";
+import type { AnimationMode } from "../../state/uiStore";
+import { pixelIcon } from "../pixelIcons";
+import { useDocumentHidden } from "../useDocumentHidden";
+import { facing } from "../scene/pixel/path";
+import {
+  CROWD,
+  FOREIGN_KINDS,
+  TORCH_KINDS,
+  armyPosition,
+  crowdOf,
+  crowdReach,
+  crowdShare,
+  crowdSpacing,
+  groundAt,
+  leadUnit,
+  type MapArmy,
+} from "./armies";
+import { armySprite, boatSprite, type Walk } from "./armySprites";
+import { crowdLayout, type CrowdUnit } from "./crowdLayout";
+import type { ArmyClock } from "./armyClock";
+import type { ToPx } from "./useArmyLoop";
 
 const FRAME_MS = 180;
 const PER_BOAT = 10;
@@ -15,27 +27,43 @@ const PER_BOAT = 10;
 const LABELS = 4;
 
 /** The figures an army marches with: exact for own armies, a fixed generic group for foreign ones. */
-export function crowdFor(a: MapArmy, cap: number = CROWD.maxPerArmy): { unit: CrowdUnit; figures: number }[] {
-  if (TORCH_KINDS.has(a.kind)) return [{ unit: 'torch', figures: CROWD.genericFigures }];
-  if (FOREIGN_KINDS.has(a.kind) || !a.units) return [{ unit: 'shield', figures: CROWD.genericFigures }];
+export function crowdFor(
+  a: MapArmy,
+  cap: number = CROWD.maxPerArmy,
+): { unit: CrowdUnit; figures: number }[] {
+  if (TORCH_KINDS.has(a.kind))
+    return [{ unit: "torch", figures: CROWD.genericFigures }];
+  if (FOREIGN_KINDS.has(a.kind) || !a.units)
+    return [{ unit: "shield", figures: CROWD.genericFigures }];
   return crowdOf(a.units, cap);
 }
 
 /** A crowd cut down to at most `max` figures, keeping every unit type it has while the room allows it. */
-export function trimCrowd(crowd: { unit: CrowdUnit; figures: number }[], max: number): { unit: CrowdUnit; figures: number }[] {
+export function trimCrowd(
+  crowd: { unit: CrowdUnit; figures: number }[],
+  max: number,
+): { unit: CrowdUnit; figures: number }[] {
   const groups = crowd.filter((c) => c.figures > 0);
   const sum = groups.reduce((s, c) => s + c.figures, 0);
   if (groups.length === 0 || sum <= max) return crowd;
   const room = Math.max(1, max);
   // Too little room for every type: the strongest ones still march, one figure each, rather than overspending.
   if (room < groups.length) {
-    return [...groups].sort((a, b) => b.figures - a.figures).slice(0, room).map((c) => ({ unit: c.unit, figures: 1 }));
+    return [...groups]
+      .sort((a, b) => b.figures - a.figures)
+      .slice(0, room)
+      .map((c) => ({ unit: c.unit, figures: 1 }));
   }
   // One figure each, then the rest shared out by size; the remainder goes to the largest fractions.
   const spare = room - groups.length;
   const exact = groups.map((c) => (spare * c.figures) / sum);
-  const out = groups.map((c, i) => ({ unit: c.unit, figures: 1 + Math.floor(exact[i]!) }));
-  const byFraction = groups.map((_, i) => i).sort((a, b) => (exact[b]! % 1) - (exact[a]! % 1));
+  const out = groups.map((c, i) => ({
+    unit: c.unit,
+    figures: 1 + Math.floor(exact[i]!),
+  }));
+  const byFraction = groups
+    .map((_, i) => i)
+    .sort((a, b) => (exact[b]! % 1) - (exact[a]! % 1));
   let left = room - out.reduce((s, c) => s + c.figures, 0);
   for (const i of byFraction) {
     if (left <= 0) break;
@@ -47,52 +75,137 @@ export function trimCrowd(crowd: { unit: CrowdUnit; figures: number }[], max: nu
 
 const images = new Map<string, HTMLImageElement>();
 export function image(url: string): HTMLImageElement | null {
-  if (typeof Image === 'undefined') return null;
+  if (typeof Image === "undefined") return null;
   let img = images.get(url);
-  if (!img) { img = new Image(); img.src = url; images.set(url, img); }
+  if (!img) {
+    img = new Image();
+    img.src = url;
+    images.set(url, img);
+  }
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
 
-export function drawFigure(ctx: CanvasRenderingContext2D, s: Walk, dir: keyof Walk['file'], frame: number, x: number, y: number, scale: number): void {
+export function drawFigure(
+  ctx: CanvasRenderingContext2D,
+  s: Walk,
+  dir: keyof Walk["file"],
+  frame: number,
+  x: number,
+  y: number,
+  scale: number,
+): void {
   const url = s.file[dir] ?? s.file.south;
   const img = url ? image(url) : null;
   if (!img) return;
   const f = frame % s.frames;
   const k = scale * (s.scale ?? 1);
-  ctx.drawImage(img, f * s.w, 0, s.w, s.h, Math.round(x - s.anchor[0] * k), Math.round(y - s.anchor[1] * k), Math.round(s.w * k), Math.round(s.h * k));
+  ctx.drawImage(
+    img,
+    f * s.w,
+    0,
+    s.w,
+    s.h,
+    Math.round(x - s.anchor[0] * k),
+    Math.round(y - s.anchor[1] * k),
+    Math.round(s.w * k),
+    Math.round(s.h * k),
+  );
 }
 
 /** The return arrow over a foreign army heading home; nothing until the icon has loaded. */
-function drawReturnBadge(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
-  const icon = image(pixelIcon('return'));
+function drawReturnBadge(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+): void {
+  const icon = image(pixelIcon("return"));
   if (!icon) return;
   const size = Math.round(16 * scale);
-  ctx.drawImage(icon, Math.round(x - size / 2), Math.round(y - size + 4 * scale), size, size);
+  ctx.drawImage(
+    icon,
+    Math.round(x - size / 2),
+    Math.round(y - size + 4 * scale),
+    size,
+    size,
+  );
 }
 
 /** Stand-in boat: a brown hull with the army's icon riding it. */
-export function drawBoat(ctx: CanvasRenderingContext2D, a: MapArmy, dir: keyof Walk['file'], frame: number, x: number, y: number, scale: number): void {
+export function drawBoat(
+  ctx: CanvasRenderingContext2D,
+  a: MapArmy,
+  dir: keyof Walk["file"],
+  frame: number,
+  x: number,
+  y: number,
+  scale: number,
+): void {
   const boat = boatSprite();
-  if (boat) { drawFigure(ctx, boat, dir, frame, x, y, scale); return; }
-  const w = 30 * scale, h = 9 * scale;
-  ctx.fillStyle = '#7a4a22';
-  ctx.fillRect(Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
-  const lead = a.units && !FOREIGN_KINDS.has(a.kind) ? leadUnit(a.units) : 'spear';
+  if (boat) {
+    drawFigure(ctx, boat, dir, frame, x, y, scale);
+    return;
+  }
+  const w = 30 * scale,
+    h = 9 * scale;
+  ctx.fillStyle = "#7a4a22";
+  ctx.fillRect(
+    Math.round(x - w / 2),
+    Math.round(y - h),
+    Math.round(w),
+    Math.round(h),
+  );
+  const lead =
+    a.units && !FOREIGN_KINDS.has(a.kind) ? leadUnit(a.units) : "spear";
   const icon = image(pixelIcon(`unit-${lead}`));
   const size = Math.round(18 * scale);
-  if (icon) ctx.drawImage(icon, Math.round(x - size / 2), Math.round(y - h - size + 2 * scale), size, size);
+  if (icon)
+    ctx.drawImage(
+      icon,
+      Math.round(x - size / 2),
+      Math.round(y - h - size + 2 * scale),
+      size,
+      size,
+    );
 }
 
 /** Map armies as marching crowds on one canvas, within the on-screen figure budget; the rest keep their icons. */
-export function CrowdCanvas({ armies, toPx, th, width, height, seed, isVillage, mode, clock }: {
-  armies: MapArmy[]; toPx: ToPx; tw: number; th: number; width: number; height: number; seed: number;
-  isVillage: (x: number, y: number) => boolean; mode: AnimationMode; clock: ArmyClock;
+export function CrowdCanvas({
+  armies,
+  toPx,
+  th,
+  width,
+  height,
+  seed,
+  isVillage,
+  mode,
+  clock,
+}: {
+  armies: MapArmy[];
+  toPx: ToPx;
+  tw: number;
+  th: number;
+  width: number;
+  height: number;
+  seed: number;
+  isVillage: (x: number, y: number) => boolean;
+  mode: AnimationMode;
+  clock: ArmyClock;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const state = useRef({ armies, toPx, th, width, height, seed, isVillage, mode });
+  const state = useRef({
+    armies,
+    toPx,
+    th,
+    width,
+    height,
+    seed,
+    isVillage,
+    mode,
+  });
   state.current = { armies, toPx, th, width, height, seed, isVillage, mode };
   const hidden = useDocumentHidden();
-  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+  const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
 
   useEffect(() => {
     const canvas = ref.current;
@@ -102,10 +215,26 @@ export function CrowdCanvas({ armies, toPx, th, width, height, seed, isVillage, 
     // back to, which is what makes them reappear when the crowds go away again (zooming out).
     const host = canvas.parentElement;
     const draw = () => {
-      const { armies: as, toPx: px, th: h, width: w, height: ht, seed: sd, isVillage: iv, mode: m } = state.current;
-      const ctx = canvas.getContext('2d');
+      const {
+        armies: as,
+        toPx: px,
+        th: h,
+        width: w,
+        height: ht,
+        seed: sd,
+        isVillage: iv,
+        mode: m,
+      } = state.current;
+      const ctx = canvas.getContext("2d");
       const now = clock.now();
-      const frame = m === 'full' ? Math.floor((typeof performance === 'undefined' ? Date.now() : performance.now()) / FRAME_MS) : 0;
+      const frame =
+        m === "full"
+          ? Math.floor(
+              (typeof performance === "undefined"
+                ? Date.now()
+                : performance.now()) / FRAME_MS,
+            )
+          : 0;
       const scale = h / CROWD.crowdHeight;
       const spacing = crowdSpacing(h);
       if (ctx) {
@@ -121,69 +250,108 @@ export function CrowdCanvas({ armies, toPx, th, width, height, seed, isVillage, 
       const reach = crowdReach(h);
       // The window sees the armies inside it and as far again beyond its border, so growing the map shows more of them
       // rather than the same few drawn larger.
-      const shown = placed.filter((p) => p.a.kind !== 'trade' && p.x >= -reach && p.x <= w + reach && p.y >= -reach && p.y <= ht + reach);
-      let figures = 0, boats = 0, budget: number = CROWD.maxOnScreen;
+      const shown = placed.filter(
+        (p) =>
+          p.a.kind !== "trade" &&
+          p.x >= -reach &&
+          p.x <= w + reach &&
+          p.y >= -reach &&
+          p.y <= ht + reach,
+      );
+      let figures = 0,
+        boats = 0,
+        budget: number = CROWD.maxOnScreen;
       const inCrowd = new Set<string>();
       const labelled = new Set<string>();
       for (const [i, p] of shown.entries()) {
         // What is left of the budget is split over the armies still to come, so the crowds shrink together and every
         // army in the window keeps marching; none is ever left behind as an icon.
-        const allowance = Math.min(CROWD.maxPerArmy, crowdShare(shown.length), Math.max(1, Math.floor(budget / (shown.length - i))));
+        const allowance = Math.min(
+          CROWD.maxPerArmy,
+          crowdShare(shown.length),
+          Math.max(1, Math.floor(budget / (shown.length - i))),
+        );
         const crowd = trimCrowd(crowdFor(p.a, allowance), allowance);
         const n = crowd.reduce((s, c) => s + c.figures, 0);
         if (n === 0) continue;
         budget -= n;
         inCrowd.add(p.a.id);
         if (labelled.size < LABELS) labelled.add(p.a.id);
-        const [fx, fy] = px(p.a.from.x, p.a.from.y), [tx, ty] = px(p.a.to.x, p.a.to.y);
+        const [fx, fy] = px(p.a.from.x, p.a.from.y),
+          [tx, ty] = px(p.a.to.x, p.a.to.y);
         const dir = facing([fx, fy], [tx, ty]);
-        if (groundAt(sd, p.pos.x, p.pos.y, iv) === 'water') {
+        if (groundAt(sd, p.pos.x, p.pos.y, iv) === "water") {
           const count = Math.ceil(n / PER_BOAT);
           boats += count;
-          const hulls = crowdLayout([{ unit: 'spear', figures: count }], { dx: tx - fx, dy: ty - fy }, 40 * scale);
-          if (ctx) for (const s of hulls) drawBoat(ctx, p.a, dir, frame, p.x + s.dx, p.y + s.dy, scale);
+          const hulls = crowdLayout(
+            [{ unit: "spear", figures: count }],
+            { dx: tx - fx, dy: ty - fy },
+            40 * scale,
+          );
+          if (ctx)
+            for (const s of hulls)
+              drawBoat(ctx, p.a, dir, frame, p.x + s.dx, p.y + s.dy, scale);
           continue;
         }
         const spots = crowdLayout(crowd, { dx: tx - fx, dy: ty - fy }, spacing);
         figures += spots.length;
         if (!ctx) continue;
         spots.sort((s, t) => s.dy - t.dy);
-        const homeward = p.a.kind === 'passingReturn';
+        const homeward = p.a.kind === "passingReturn";
         if (homeward) ctx.globalAlpha = 0.5;
-        for (const s of spots) drawFigure(ctx, armySprite(s.unit), dir, frame + (s.dx > 0 ? 1 : 0), p.x + s.dx, p.y + s.dy, scale);
+        for (const s of spots)
+          drawFigure(
+            ctx,
+            armySprite(s.unit),
+            dir,
+            frame + (s.dx > 0 ? 1 : 0),
+            p.x + s.dx,
+            p.y + s.dy,
+            scale,
+          );
         if (homeward) {
           ctx.globalAlpha = 1;
           drawReturnBadge(ctx, p.x, p.y - 52 * scale, scale);
         }
       }
-      canvas.setAttribute('data-figures', String(figures));
-      canvas.setAttribute('data-boats', String(boats));
-      for (const marker of host?.querySelectorAll<SVGGElement>('[data-army] [data-marker]') ?? []) {
-        const id = marker.closest('[data-army]')!.getAttribute('data-army')!;
+      canvas.setAttribute("data-figures", String(figures));
+      canvas.setAttribute("data-boats", String(boats));
+      for (const marker of host?.querySelectorAll<SVGGElement>(
+        "[data-army] [data-marker]",
+      ) ?? []) {
+        const id = marker.closest("[data-army]")!.getAttribute("data-army")!;
         const on = inCrowd.has(id);
-        const counts = marker.querySelector('[data-counts]');
-        const label = labelled.has(id) ? 'inline' : 'none';
-        if (counts && counts.getAttribute('display') !== label) counts.setAttribute('display', label);
-        if (marker.hasAttribute('data-in-crowd') === on) continue;
-        if (on) marker.setAttribute('data-in-crowd', '');
-        else marker.removeAttribute('data-in-crowd');
-        marker.querySelector('[data-icon]')?.setAttribute('display', on ? 'none' : 'inline');
+        const counts = marker.querySelector("[data-counts]");
+        const label = labelled.has(id) ? "inline" : "none";
+        if (counts && counts.getAttribute("display") !== label)
+          counts.setAttribute("display", label);
+        if (marker.hasAttribute("data-in-crowd") === on) continue;
+        if (on) marker.setAttribute("data-in-crowd", "");
+        else marker.removeAttribute("data-in-crowd");
+        marker
+          .querySelector("[data-icon]")
+          ?.setAttribute("display", on ? "none" : "inline");
       }
     };
     draw();
     const unsubscribe = clock.subscribe(draw);
     let raf = 0;
-    if (!hidden && typeof requestAnimationFrame === 'function') {
-      const loop = () => { draw(); raf = requestAnimationFrame(loop); };
+    if (!hidden && typeof requestAnimationFrame === "function") {
+      const loop = () => {
+        draw();
+        raf = requestAnimationFrame(loop);
+      };
       raf = requestAnimationFrame(loop);
     }
     return () => {
       unsubscribe();
       if (raf) cancelAnimationFrame(raf);
-      for (const marker of host?.querySelectorAll<SVGGElement>('[data-in-crowd]') ?? []) {
-        marker.removeAttribute('data-in-crowd');
-        marker.querySelector('[data-icon]')?.setAttribute('display', 'inline');
-        marker.querySelector('[data-counts]')?.setAttribute('display', 'none');
+      for (const marker of host?.querySelectorAll<SVGGElement>(
+        "[data-in-crowd]",
+      ) ?? []) {
+        marker.removeAttribute("data-in-crowd");
+        marker.querySelector("[data-icon]")?.setAttribute("display", "inline");
+        marker.querySelector("[data-counts]")?.setAttribute("display", "none");
       }
     };
   }, [hidden, dpr]);

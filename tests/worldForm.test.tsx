@@ -1,77 +1,160 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { setLocale } from '../src/i18n/i18n';
-import { WorldForm, liveChanges } from '../src/account/admin/WorldForm';
-import { DEFAULT_CONFIG, FIELDS, type WorldConfig } from '../src/account/worldConfig';
-import { DEFAULT_WORLD_CONFIG, WORLD_LIMITS } from '../src/data/world.config';
+import { describe, it, expect, afterEach } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { setLocale } from "../src/i18n/i18n";
+import { WorldForm, liveChanges } from "../src/account/admin/WorldForm";
+import {
+  DEFAULT_CONFIG,
+  FIELDS,
+  type WorldConfig,
+} from "../src/account/worldConfig";
+import { DEFAULT_WORLD_CONFIG, WORLD_LIMITS } from "../src/data/world.config";
 
 afterEach(() => cleanup());
 
-describe('world settings form', () => {
-  it('defaults and ranges are the server\'s', () => {
+describe("world settings form", () => {
+  it("defaults and ranges are the server's", () => {
     // The server leaves both at zero: field battles on, and a sight radius of 0 means 1.
-    expect({ ...DEFAULT_CONFIG, noFieldBattles: undefined, sightRadius: undefined }).toEqual(DEFAULT_WORLD_CONFIG);
+    expect({
+      ...DEFAULT_CONFIG,
+      noFieldBattles: undefined,
+      sightRadius: undefined,
+    }).toEqual(DEFAULT_WORLD_CONFIG);
     expect(DEFAULT_CONFIG.sightRadius).toBe(1);
-    const field = (key: keyof WorldConfig) => FIELDS.find((f) => f.key === key)!;
-    for (const key of ['worldSpeed', 'unitSpeed', 'botCount', 'rampUpDays', 'beginnerProtectionDays'] as const) {
-      expect([field(key).min, field(key).max], key).toEqual([WORLD_LIMITS[key].min, WORLD_LIMITS[key].max]);
+    const field = (key: keyof WorldConfig) =>
+      FIELDS.find((f) => f.key === key)!;
+    for (const key of [
+      "worldSpeed",
+      "unitSpeed",
+      "botCount",
+      "rampUpDays",
+      "beginnerProtectionDays",
+    ] as const) {
+      expect([field(key).min, field(key).max], key).toEqual([
+        WORLD_LIMITS[key].min,
+        WORLD_LIMITS[key].max,
+      ]);
     }
-    for (const key of ['humanModifiers', 'botModifiers', 'barbarianModifiers'] as const) {
-      expect([field(key).min, field(key).max], key).toEqual([WORLD_LIMITS.modifier.min, WORLD_LIMITS.modifier.max]);
+    for (const key of [
+      "humanModifiers",
+      "botModifiers",
+      "barbarianModifiers",
+    ] as const) {
+      expect([field(key).min, field(key).max], key).toEqual([
+        WORLD_LIMITS.modifier.min,
+        WORLD_LIMITS.modifier.max,
+      ]);
     }
-    expect(field('mapSize').choices).toEqual(WORLD_LIMITS.mapSizes.map(String));
-    expect([field('sightRadius').min, field('sightRadius').max]).toEqual([1, WORLD_LIMITS.sightRadius.max]);
+    expect(field("mapSize").choices).toEqual(WORLD_LIMITS.mapSizes.map(String));
+    expect([field("sightRadius").min, field("sightRadius").max]).toEqual([
+      1,
+      WORLD_LIMITS.sightRadius.max,
+    ]);
   });
 
-  it('barbarians get a resource multiplier only, and it may change in a running world', () => {
-    setLocale('en');
+  it("barbarians get a resource multiplier only, and it may change in a running world", () => {
+    setLocale("en");
     let value: WorldConfig = { ...DEFAULT_CONFIG };
-    render(<WorldForm idPrefix="w" value={value} onChange={(v) => { value = v; }} mode="edit" />);
-    const label = screen.getByText('Barbarian resource multiplier');
-    const field = label.closest('fieldset')!;
+    render(
+      <WorldForm
+        idPrefix="w"
+        value={value}
+        onChange={(v) => {
+          value = v;
+        }}
+        mode="edit"
+      />,
+    );
+    const label = screen.getByText("Barbarian resource multiplier");
+    const field = label.closest("fieldset")!;
     // Barbarians only earn differently: recruitment and building have nothing to promise.
-    expect(field.querySelectorAll('input')).toHaveLength(1);
-    fireEvent.change(field.querySelector('input')!, { target: { value: '2.5' } });
+    expect(field.querySelectorAll("input")).toHaveLength(1);
+    fireEvent.change(field.querySelector("input")!, {
+      target: { value: "2.5" },
+    });
     expect(value.barbarianModifiers.resources).toBe(2.5);
     expect(value.barbarianModifiers.recruitment).toBe(1);
     expect(value.barbarianModifiers.building).toBe(1);
     // A change to it is a live setting, not one fixed at creation.
-    expect(liveChanges({ ...DEFAULT_CONFIG }, value)).toEqual({ barbarianModifiers: value.barbarianModifiers });
+    expect(liveChanges({ ...DEFAULT_CONFIG }, value)).toEqual({
+      barbarianModifiers: value.barbarianModifiers,
+    });
   });
 
-  it('field battles can be switched off and the sight radius set', () => {
-    setLocale('en');
+  it("field battles can be switched off and the sight radius set", () => {
+    setLocale("en");
     let value: WorldConfig = { ...DEFAULT_CONFIG };
-    const { rerender } = render(<WorldForm idPrefix="w" value={value} onChange={(v) => { value = v; }} mode="create" />);
-    const off = screen.getByLabelText('No field battles') as HTMLInputElement;
+    const { rerender } = render(
+      <WorldForm
+        idPrefix="w"
+        value={value}
+        onChange={(v) => {
+          value = v;
+        }}
+        mode="create"
+      />,
+    );
+    const off = screen.getByLabelText("No field battles") as HTMLInputElement;
     expect(off.checked).toBe(false);
     fireEvent.click(off);
     expect(value.noFieldBattles).toBe(true);
-    rerender(<WorldForm idPrefix="w" value={value} onChange={(v) => { value = v; }} mode="create" />);
-    fireEvent.change(screen.getByLabelText(/Sight radius/), { target: { value: '5' } });
+    rerender(
+      <WorldForm
+        idPrefix="w"
+        value={value}
+        onChange={(v) => {
+          value = v;
+        }}
+        mode="create"
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/Sight radius/), {
+      target: { value: "5" },
+    });
     expect(value.sightRadius).toBe(5);
   });
 
-  it('trading is a checkbox, on by default, and changes live', () => {
-    setLocale('en');
+  it("trading is a checkbox, on by default, and changes live", () => {
+    setLocale("en");
     expect(DEFAULT_CONFIG.tradingEnabled).toBe(true);
     let value: WorldConfig = { ...DEFAULT_CONFIG };
-    const { rerender } = render(<WorldForm idPrefix="w" value={value} onChange={(v) => { value = v; }} mode="create" />);
-    const box = screen.getByLabelText('Trading') as HTMLInputElement;
+    const { rerender } = render(
+      <WorldForm
+        idPrefix="w"
+        value={value}
+        onChange={(v) => {
+          value = v;
+        }}
+        mode="create"
+      />,
+    );
+    const box = screen.getByLabelText("Trading") as HTMLInputElement;
     expect(box.checked).toBe(true);
     fireEvent.click(box);
     expect(value.tradingEnabled).toBe(false);
-    rerender(<WorldForm idPrefix="w" value={value} onChange={(v) => { value = v; }} mode="create" />);
+    rerender(
+      <WorldForm
+        idPrefix="w"
+        value={value}
+        onChange={(v) => {
+          value = v;
+        }}
+        mode="create"
+      />,
+    );
     // Editable on a running world: the admin may switch it on or off at any time.
-    const spec = FIELDS.find((f) => f.key === 'tradingEnabled')!;
+    const spec = FIELDS.find((f) => f.key === "tradingEnabled")!;
     expect(spec.creationOnly).toBe(false);
     const before: WorldConfig = { ...DEFAULT_CONFIG };
-    expect(liveChanges(before, { ...before, tradingEnabled: false })).toEqual({ tradingEnabled: false });
+    expect(liveChanges(before, { ...before, tradingEnabled: false })).toEqual({
+      tradingEnabled: false,
+    });
   });
 
-  it('switching field battles off is a live change, the sight radius is fixed at creation', () => {
+  it("switching field battles off is a live change, the sight radius is fixed at creation", () => {
     const before: WorldConfig = { ...DEFAULT_CONFIG };
-    expect(liveChanges(before, { ...before, noFieldBattles: true, sightRadius: 3 })).toEqual({ noFieldBattles: true });
+    expect(
+      liveChanges(before, { ...before, noFieldBattles: true, sightRadius: 3 }),
+    ).toEqual({ noFieldBattles: true });
   });
 });

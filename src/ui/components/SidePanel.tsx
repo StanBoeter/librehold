@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { t, useT } from '../../i18n/i18n';
+import { useState } from "react";
+import { t, useT } from "../../i18n/i18n";
 
 /**
  * A village card: the wooden header bar with an italic title and a − / + collapse button, and its content below. The
@@ -8,7 +8,13 @@ import { t, useT } from '../../i18n/i18n';
  * `open` can be controlled from outside (the Movements card remembers its fold as a browser preference, because the
  * card unmounts whenever the last movement lands); leave it out and the panel keeps the fold to itself.
  */
-export function SidePanel({ title, children, open, onToggle, right }: {
+export function SidePanel({
+  title,
+  children,
+  open,
+  onToggle,
+  right,
+}: {
   title: React.ReactNode;
   children: React.ReactNode;
   open?: boolean;
@@ -29,7 +35,13 @@ export function SidePanel({ title, children, open, onToggle, right }: {
         <span className="italic font-bold">{title}</span>
         <span className="flex items-center gap-1">
           {right}
-          <button className="btn !px-1.5 !py-0 !text-[11px] leading-4" onClick={toggle} title={isOpen ? t('village.collapse') : t('village.expand')}>{isOpen ? '−' : '+'}</button>
+          <button
+            className="btn !px-1.5 !py-0 !text-[11px] leading-4"
+            onClick={toggle}
+            title={isOpen ? t("village.collapse") : t("village.expand")}
+          >
+            {isOpen ? "−" : "+"}
+          </button>
         </span>
       </div>
       {isOpen && children}

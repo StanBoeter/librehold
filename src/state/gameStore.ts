@@ -191,8 +191,16 @@ export interface GameStore {
     amount: ResourceSet,
   ) => Promise<string | null>;
   acceptTraderOffer: (villageId: string) => Promise<string | null>;
-  createTradeOffer: (in_: { originId: string; give: ResourceSet; want: ResourceSet; maxDeliveryMs: number }) => Promise<string | null>;
-  acceptTradeOffer: (offerId: string | string[], villageId?: string) => Promise<string | null>;
+  createTradeOffer: (in_: {
+    originId: string;
+    give: ResourceSet;
+    want: ResourceSet;
+    maxDeliveryMs: number;
+  }) => Promise<string | null>;
+  acceptTradeOffer: (
+    offerId: string | string[],
+    villageId?: string,
+  ) => Promise<string | null>;
   cancelTradeOffer: (offerId: string) => Promise<string | null>;
   applyBuildTemplate: (
     villageId: string,
@@ -800,7 +808,10 @@ export const useGameStore = create<GameStore>()(
         run("cancel-research", { villageId, jobId }),
 
       lastError: null,
-      pushError: (text) => set((s) => { s.lastError = text; }),
+      pushError: (text) =>
+        set((s) => {
+          s.lastError = text;
+        }),
       clearError: () =>
         set((s) => {
           s.lastError = null;
@@ -861,12 +872,13 @@ export const useGameStore = create<GameStore>()(
       sendTemplate: (key, x, y) =>
         run("send-farm-template", { originId: active(), key, x, y }),
 
-      createTradeOffer: (in_) => run('create-trade-offer', in_),
-      acceptTradeOffer: (offerId, villageId) => run('accept-trade-offer', {
-        ...(Array.isArray(offerId) ? { offerIds: offerId } : { offerId }),
-        ...(villageId ? { villageId } : {}),
-      }),
-      cancelTradeOffer: (offerId) => run('cancel-trade-offer', { id: offerId }),
+      createTradeOffer: (in_) => run("create-trade-offer", in_),
+      acceptTradeOffer: (offerId, villageId) =>
+        run("accept-trade-offer", {
+          ...(Array.isArray(offerId) ? { offerIds: offerId } : { offerId }),
+          ...(villageId ? { villageId } : {}),
+        }),
+      cancelTradeOffer: (offerId) => run("cancel-trade-offer", { id: offerId }),
       trade: (originId, targetId, amount) =>
         run("trade", { originId, targetId, amount }),
       acceptTraderOffer: (villageId) => run("accept-trader", { villageId }),

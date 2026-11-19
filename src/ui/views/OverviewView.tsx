@@ -1,26 +1,49 @@
-import { buildingName, resourceName, unitName } from '../../i18n/names';
-import { PixelIcon } from '../pixelIcons';
-import { useT } from '../../i18n/i18n';
-import { COMMAND_ICON, commandEnds, villageLabelOf } from '../villageName';
-import { useState } from 'react';
-import { BUILDINGS, BUILDING_ORDER } from '../../data/buildings.data';
-import { UNITS } from '../../data/units.data';
-import { villageFarmCapacity, villagePopulationUsed, villageProductionPerHour, villageStorageCapacity } from '../../engine/resources';
-import { RESOURCES, UNIT_IDS, type BuildingId, type Command, type Resource, type UnitId } from '../../engine/types';
-import { useGameStore } from '../../state/gameStore';
-import { Countdown } from '../components/Countdown';
-import { ResourceIcon } from '../components/ResourceIcon';
-import { ResourceList } from '../components/ResourceList';
-import { UnitCountList } from '../components/UnitCountList';
-import { UnitIcon } from '../components/UnitIcon';
-import { formatCoords, formatNumber } from '../format';
-import { useClock } from '../useClock';
-import { humanPlayer, humanVillageIds } from '../../engine/players';
-import { NumberInput } from '../../shared/NumberInput';
-import { isMovementOf } from './MovementsPanel';
-import { CommandsTable, commandRows, type CommandRow } from '../components/CommandsTable';
+import { buildingName, resourceName, unitName } from "../../i18n/names";
+import { PixelIcon } from "../pixelIcons";
+import { useT } from "../../i18n/i18n";
+import { COMMAND_ICON, commandEnds, villageLabelOf } from "../villageName";
+import { useState } from "react";
+import { BUILDINGS, BUILDING_ORDER } from "../../data/buildings.data";
+import { UNITS } from "../../data/units.data";
+import {
+  villageFarmCapacity,
+  villagePopulationUsed,
+  villageProductionPerHour,
+  villageStorageCapacity,
+} from "../../engine/resources";
+import {
+  RESOURCES,
+  UNIT_IDS,
+  type BuildingId,
+  type Command,
+  type Resource,
+  type UnitId,
+} from "../../engine/types";
+import { useGameStore } from "../../state/gameStore";
+import { Countdown } from "../components/Countdown";
+import { ResourceIcon } from "../components/ResourceIcon";
+import { ResourceList } from "../components/ResourceList";
+import { UnitCountList } from "../components/UnitCountList";
+import { UnitIcon } from "../components/UnitIcon";
+import { formatCoords, formatNumber } from "../format";
+import { useClock } from "../useClock";
+import { humanPlayer, humanVillageIds } from "../../engine/players";
+import { NumberInput } from "../../shared/NumberInput";
+import { isMovementOf } from "./MovementsPanel";
+import {
+  CommandsTable,
+  commandRows,
+  type CommandRow,
+} from "../components/CommandsTable";
 
-type Tab = 'build' | 'units' | 'recruit' | 'resources' | 'trading' | 'commands' | 'groups';
+type Tab =
+  | "build"
+  | "units"
+  | "recruit"
+  | "resources"
+  | "trading"
+  | "commands"
+  | "groups";
 
 function useVillageIds(groupId: string): string[] {
   return useGameStore((s) => {
@@ -355,10 +378,21 @@ function CommandsTab({ ids }: { ids: string[] }) {
   const t = useT();
   const json = useGameStore((s) => {
     const g = s.game!;
-    return JSON.stringify(commandRows(g, g.commands.filter((c) => c.type !== 'trade' && (ids.includes(c.originId) || ids.includes(c.targetId))), () => false));
+    return JSON.stringify(
+      commandRows(
+        g,
+        g.commands.filter(
+          (c) =>
+            c.type !== "trade" &&
+            (ids.includes(c.originId) || ids.includes(c.targetId)),
+        ),
+        () => false,
+      ),
+    );
   });
   const rows = JSON.parse(json) as CommandRow[];
-  if (rows.length === 0) return <p className="text-muted italic">{t('overview.noMoves')}</p>;
+  if (rows.length === 0)
+    return <p className="text-muted italic">{t("overview.noMoves")}</p>;
   return <CommandsTable rows={rows} />;
 }
 
@@ -370,10 +404,17 @@ function TradingTab({ ids }: { ids: string[] }) {
     const g = s.game!;
     const shown = new Set(ids);
     const own = new Set(humanVillageIds(g));
-    return JSON.stringify(commandRows(g, g.commands.filter((c) => isMovementOf(c, shown, own, 'trade')), () => false));
+    return JSON.stringify(
+      commandRows(
+        g,
+        g.commands.filter((c) => isMovementOf(c, shown, own, "trade")),
+        () => false,
+      ),
+    );
   });
   const rows = JSON.parse(json) as CommandRow[];
-  if (rows.length === 0) return <p className="text-muted italic">{t('overview.noTrade')}</p>;
+  if (rows.length === 0)
+    return <p className="text-muted italic">{t("overview.noTrade")}</p>;
   return <CommandsTable rows={rows} />;
 }
 
@@ -474,9 +515,25 @@ export function OverviewView() {
   return (
     <div className="text-[12px]">
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <h2 className="text-lg mr-2">{t('overview.title')}</h2>
-        {(['build', 'units', 'recruit', 'resources', 'trading', 'commands', 'groups'] as const).map((id) => (
-          <button key={id} className={`btn ${tab === id ? '!bg-panel-dark' : ''}`} onClick={() => setTab(id)}>{t(`overview.tab.${id}`)}</button>
+        <h2 className="text-lg mr-2">{t("overview.title")}</h2>
+        {(
+          [
+            "build",
+            "units",
+            "recruit",
+            "resources",
+            "trading",
+            "commands",
+            "groups",
+          ] as const
+        ).map((id) => (
+          <button
+            key={id}
+            className={`btn ${tab === id ? "!bg-panel-dark" : ""}`}
+            onClick={() => setTab(id)}
+          >
+            {t(`overview.tab.${id}`)}
+          </button>
         ))}
         <select
           className="ml-auto px-1 border border-wood-border rounded bg-white/50"
@@ -491,13 +548,13 @@ export function OverviewView() {
           ))}
         </select>
       </div>
-      {tab === 'build' && <BuildTab ids={ids} />}
-      {tab === 'units' && <UnitsTab ids={ids} />}
-      {tab === 'recruit' && <RecruitTab ids={ids} />}
-      {tab === 'resources' && <ResourcesTab ids={ids} />}
-      {tab === 'trading' && <TradingTab ids={ids} />}
-      {tab === 'commands' && <CommandsTab ids={ids} />}
-      {tab === 'groups' && <GroupsTab />}
+      {tab === "build" && <BuildTab ids={ids} />}
+      {tab === "units" && <UnitsTab ids={ids} />}
+      {tab === "recruit" && <RecruitTab ids={ids} />}
+      {tab === "resources" && <ResourcesTab ids={ids} />}
+      {tab === "trading" && <TradingTab ids={ids} />}
+      {tab === "commands" && <CommandsTab ids={ids} />}
+      {tab === "groups" && <GroupsTab />}
     </div>
   );
 }

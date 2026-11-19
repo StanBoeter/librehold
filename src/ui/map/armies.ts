@@ -41,7 +41,13 @@ export interface MapArmy {
   units: Partial<Record<UnitId, number>> | null;
 }
 
-export const CROWD = { maxPerArmy: 240, maxOnScreen: 600, genericFigures: 8, figureSpacing: 17, crowdHeight: 125 } as const;
+export const CROWD = {
+  maxPerArmy: 240,
+  maxOnScreen: 600,
+  genericFigures: 8,
+  figureSpacing: 17,
+  crowdHeight: 125,
+} as const;
 
 /**
  * How far a crowd is seen at its nearest point. One crowd is figures laid out behind its head at a fixed footing, so
@@ -98,16 +104,27 @@ export const INTERCEPTABLE_KINDS: ReadonlySet<ArmyKind> = new Set([
  * their armies are not "nearby": they are shown whatever the player chooses, so hiding these never hides an attack
  * that is their own.
  */
-export const NEARBY_KINDS: ReadonlySet<ArmyKind> = new Set(['passingAttack', 'passingReturn']);
+export const NEARBY_KINDS: ReadonlySet<ArmyKind> = new Set([
+  "passingAttack",
+  "passingReturn",
+]);
 
 /** The player's own armies on the warpath, and the ones coming home from it. */
-export const OWN_ATTACK_KINDS: ReadonlySet<ArmyKind> = new Set(['ownAttack', 'ownReturn', 'ownIntercept']);
+export const OWN_ATTACK_KINDS: ReadonlySet<ArmyKind> = new Set([
+  "ownAttack",
+  "ownReturn",
+  "ownIntercept",
+]);
 
 /** Support on its way, whoever sent it. */
-export const SUPPORT_KINDS: ReadonlySet<ArmyKind> = new Set(['ownSupport', 'incomingSupport', 'passingSupport']);
+export const SUPPORT_KINDS: ReadonlySet<ArmyKind> = new Set([
+  "ownSupport",
+  "incomingSupport",
+  "passingSupport",
+]);
 
 /** Merchants on the road. */
-export const MERCHANT_KINDS: ReadonlySet<ArmyKind> = new Set(['trade']);
+export const MERCHANT_KINDS: ReadonlySet<ArmyKind> = new Set(["trade"]);
 
 /** Whether a foreign army is within sight of one of the player's villages now (the server sends only those). */
 function inSight(g: GameState, c: Command, mine: ReadonlySet<string>): boolean {
@@ -211,11 +228,20 @@ export interface ArmyLayers {
   merchants: boolean;
 }
 
-export const ALL_ARMY_LAYERS: ArmyLayers = { nearby: true, ownAttacks: true, support: true, merchants: true };
+export const ALL_ARMY_LAYERS: ArmyLayers = {
+  nearby: true,
+  ownAttacks: true,
+  support: true,
+  merchants: true,
+};
 
 /** The armies the map draws: the layers the player switched off are left out, nothing else changes. */
-export function withArmyLayers(armies: MapArmy[], layers: ArmyLayers): MapArmy[] {
-  if (layers.nearby && layers.ownAttacks && layers.support && layers.merchants) return armies;
+export function withArmyLayers(
+  armies: MapArmy[],
+  layers: ArmyLayers,
+): MapArmy[] {
+  if (layers.nearby && layers.ownAttacks && layers.support && layers.merchants)
+    return armies;
   return armies.filter((a) => {
     const kind = a.kind;
     if (!layers.nearby && NEARBY_KINDS.has(kind)) return false;
@@ -226,9 +252,19 @@ export function withArmyLayers(armies: MapArmy[], layers: ArmyLayers): MapArmy[]
   });
 }
 
-export function armyPosition(a: MapArmy, now: number): { x: number; y: number; p: number } {
-  const p = Math.max(0, Math.min(1, (now - a.departedAt) / Math.max(1, a.arrivesAt - a.departedAt)));
-  return { x: a.from.x + (a.to.x - a.from.x) * p, y: a.from.y + (a.to.y - a.from.y) * p, p };
+export function armyPosition(
+  a: MapArmy,
+  now: number,
+): { x: number; y: number; p: number } {
+  const p = Math.max(
+    0,
+    Math.min(1, (now - a.departedAt) / Math.max(1, a.arrivesAt - a.departedAt)),
+  );
+  return {
+    x: a.from.x + (a.to.x - a.from.x) * p,
+    y: a.from.y + (a.to.y - a.from.y) * p,
+    p,
+  };
 }
 
 /** One figure per unit for a small army; past 24 every doubling adds 16 more, so a big army still looks bigger. */
