@@ -27,31 +27,31 @@ var BotConfig = struct {
 		LenMin   [2]float64 `json:"lenMin"`
 		WeakSkip float64    `json:"weakSkip"`
 	} `json:"startRush"`
-	ThinkEveryMin         float64              `json:"thinkEveryMin"`
-	FreePop               int                  `json:"freePop"`
-	BottleneckShare       float64              `json:"bottleneckShare"`
-	MaxedFarmReserve      float64              `json:"maxedFarmReserve"`
-	KnowRadius            float64              `json:"knowRadius"`
-	FarmRadius            StrongWeak           `json:"farmRadius"`
-	FarmMinIntervalMin    float64              `json:"farmMinIntervalMin"`
-	DeadHaulRatio         float64              `json:"deadHaulRatio"`
-	DeadFarmDays          float64              `json:"deadFarmDays"`
-	RediscoverHours       float64              `json:"rediscoverHours"`
-	ForgetDays            float64              `json:"forgetDays"`
-	FarmLoot              float64              `json:"farmLoot"`
-	FarmRefillHours       float64              `json:"farmRefillHours"`
-	MaxRaidsPerThink      int                  `json:"maxRaidsPerThink"`
-	MaxNightRuns          int                  `json:"maxNightRuns"`
-	QuitScale             float64              `json:"quitScale"`
-	AbandonAfterDays      float64              `json:"abandonAfterDays"`
-	GrudgeFadeDays        float64              `json:"grudgeFadeDays"`
-	NukeAttack            float64              `json:"nukeAttack"`
-	WeakExpandDailyChance float64              `json:"weakExpandDailyChance"`
+	ThinkEveryMin         float64    `json:"thinkEveryMin"`
+	FreePop               int        `json:"freePop"`
+	BottleneckShare       float64    `json:"bottleneckShare"`
+	MaxedFarmReserve      float64    `json:"maxedFarmReserve"`
+	KnowRadius            float64    `json:"knowRadius"`
+	FarmRadius            StrongWeak `json:"farmRadius"`
+	FarmMinIntervalMin    float64    `json:"farmMinIntervalMin"`
+	DeadHaulRatio         float64    `json:"deadHaulRatio"`
+	DeadFarmDays          float64    `json:"deadFarmDays"`
+	RediscoverHours       float64    `json:"rediscoverHours"`
+	ForgetDays            float64    `json:"forgetDays"`
+	FarmLoot              float64    `json:"farmLoot"`
+	FarmRefillHours       float64    `json:"farmRefillHours"`
+	MaxRaidsPerThink      int        `json:"maxRaidsPerThink"`
+	MaxNightRuns          int        `json:"maxNightRuns"`
+	QuitScale             float64    `json:"quitScale"`
+	AbandonAfterDays      float64    `json:"abandonAfterDays"`
+	GrudgeFadeDays        float64    `json:"grudgeFadeDays"`
+	NukeAttack            float64    `json:"nukeAttack"`
+	WeakExpandDailyChance float64    `json:"weakExpandDailyChance"`
 
-	ShortTradeChance      float64              `json:"shortTradeChance"`
-	IntelStaleHours       float64              `json:"intelStaleHours"`
-	OffShare              map[BotStyle]float64 `json:"offShare"`
-	StyleWeights          map[BotStyle]float64 `json:"styleWeights"`
+	ShortTradeChance float64              `json:"shortTradeChance"`
+	IntelStaleHours  float64              `json:"intelStaleHours"`
+	OffShare         map[BotStyle]float64 `json:"offShare"`
+	StyleWeights     map[BotStyle]float64 `json:"styleWeights"`
 	// HomeGuardPop is the troop population a village keeps home whatever else may go out, so a village of nothing
 	// but raiders still shows a scout somebody.
 	HomeGuardPop float64 `json:"homeGuardPop"`
@@ -89,8 +89,8 @@ var BotConfig = struct {
 	NukeAttack:            150_000,
 	WeakExpandDailyChance: 0.3,
 
-	ShortTradeChance:      0.25,
-	IntelStaleHours:       24,
+	ShortTradeChance: 0.25,
+	IntelStaleHours:  24,
 	OffShare: map[BotStyle]float64{StyleAggressor: 0.75, StyleFarmer: 0.6, StyleOpportunist: 0.6,
 		StylePointBuilder: 0.5, StyleTurtle: 0.3},
 	StyleWeights: map[BotStyle]float64{StyleFarmer: 1, StyleTurtle: 1, StyleAggressor: 1, StylePointBuilder: 1,

@@ -70,7 +70,6 @@ var RoleTargets = map[VillageRole]map[BuildingID]int{
 		BIron: 25, BWall: 15, BHide: 10},
 }
 
-
 // MilitaryTargets are the buildings that make an army, at the level a village keeps raising them to once its role's
 // list is done. A mixed village's list stops at barracks 10, which a bot reaches in a week; from there nothing on the
 // list is left to build, so without this a grown village queues nothing at all while its storehouse sits full —
