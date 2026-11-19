@@ -74,4 +74,10 @@ describe('map tile in the classic skin', () => {
     cleanup();
     expect(render(<TileArt tw={53} th={38} />).container.querySelector('img')).toBeNull();
   });
+
+  it('leaves out the command dot while the icons are hidden, and keeps the village', () => {
+    const c = render(<TileArt village={{ ...base, size: 4 }} dot="a" icons={false} tw={53} th={38} />).container;
+    expect(c.querySelector('img')).not.toBeNull();
+    expect(c.querySelector('circle')).toBeNull();
+  });
 });

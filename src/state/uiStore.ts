@@ -24,13 +24,28 @@ export interface UiPrefs {
    * lands — without this, folding it would last only until the next march ends.
    */
   movementsCollapsed: boolean;
+  /** Villages, armies and command dots on the map; the route lines and their arrows stay either way. */
+  mapIcons: boolean;
+  /** Other players' armies passing within sight of the player's villages (attacks on the player always show). */
+  mapNearbyAttacks: boolean;
+  /** The player's own attacks and the armies coming home from them. */
+  mapOwnAttacks: boolean;
+  /** Support on its way: the player's, other players' to the player and other players' passing by. */
+  mapSupport: boolean;
+  /** Merchants on the road. */
+  mapMerchants: boolean;
+  /** The map's toolbar over the map is unfolded. On a phone it can take a third of the screen, so it can be put away. */
+  mapToolbarOpen: boolean;
 }
 
 const PREFS_KEY = 'lh-ui-prefs';
 
 function defaultPrefs(): UiPrefs {
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  return { animations: reduced ? 'limited' : 'full', sound: false, showScene: true, lockedOpen: true, movementsCollapsed: false };
+  return {
+    animations: reduced ? 'limited' : 'full', sound: false, showScene: true, lockedOpen: true, movementsCollapsed: false,
+    mapIcons: true, mapNearbyAttacks: true, mapOwnAttacks: true, mapSupport: true, mapMerchants: true, mapToolbarOpen: true,
+  };
 }
 
 function loadPrefs(): UiPrefs {

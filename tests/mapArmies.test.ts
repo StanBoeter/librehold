@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CROWD, armiesOnMap, armyPosition, crowdOf, crowdShare, figuresFor, groundAt, type Ground, type MapArmy } from '../src/ui/map/armies';
+import { ALL_ARMY_LAYERS, CROWD, armiesOnMap, armyPosition, crowdOf, crowdShare, figuresFor, groundAt, withArmyLayers, type Ground, type MapArmy } from '../src/ui/map/armies';
 import { BIOME, SUB_X, SUB_Y, biomeAt, biomeGrid, rawVertex, tileBiome, type Biome } from '../src/ui/map/biomes';
 import type { Command, GameState } from '../src/engine/types';
 import { activeVillage, makeBotVillage, newTestGame } from './helpers';
@@ -71,6 +71,36 @@ describe('armies on the map', () => {
     expect(armiesOnMap(g)).toEqual([]);
     g.config.sightRadius = 50;
     expect(armiesOnMap(g).map((a) => a.kind)).toEqual(['passingAttack']);
+  });
+
+  it('nearby armies can be left out without ever hiding an attack on the player', () => {
+    const { g, home, bot, bot2 } = world();
+    cmd(g, { id: 'inc', type: 'attack', originId: bot.id, targetId: home.id });
+    cmd(g, { id: 'th', type: 'intercept', originId: bot.id, targetId: '', point: { x: home.x + 1, y: home.y }, units: { axe: 9 } });
+    g.config.sightRadius = 3;
+    cmd(g, { id: 'pa', type: 'attack', originId: bot.id, targetId: bot2.id });
+    const armies = armiesOnMap(g);
+    expect(armies.map((a) => a.id).sort()).toEqual(['inc', 'pa', 'th']);
+    expect(withArmyLayers(armies, ALL_ARMY_LAYERS)).toBe(armies);
+    expect(withArmyLayers(armies, { ...ALL_ARMY_LAYERS, nearby: false }).map((a) => a.kind).sort()).toEqual(['incomingAttack', 'threat']);
+  });
+
+  it('own attacks, support and merchants are separate layers', () => {
+    const { g, home, bot } = world();
+    cmd(g, { id: 'own', type: 'attack', originId: home.id, targetId: bot.id, units: { axe: 5 } });
+    cmd(g, { id: 'back', type: 'return', originId: bot.id, targetId: home.id, units: { axe: 4 } });
+    cmd(g, { id: 'mine', type: 'support', originId: home.id, targetId: bot.id, units: { spear: 5 } });
+    cmd(g, { id: 'theirs', type: 'support', originId: bot.id, targetId: home.id });
+    cmd(g, { id: 'trade', type: 'trade', originId: home.id, targetId: bot.id, merchants: 2 });
+    cmd(g, { id: 'inc', type: 'attack', originId: bot.id, targetId: home.id });
+    const armies = armiesOnMap(g);
+    const kinds = (layers: Partial<typeof ALL_ARMY_LAYERS>) => withArmyLayers(armies, { ...ALL_ARMY_LAYERS, ...layers }).map((a) => a.id).sort();
+    expect(kinds({})).toEqual(['back', 'inc', 'mine', 'own', 'theirs', 'trade']);
+    expect(kinds({ ownAttacks: false })).toEqual(['inc', 'mine', 'theirs', 'trade']);
+    expect(kinds({ support: false })).toEqual(['back', 'inc', 'own', 'trade']);
+    expect(kinds({ merchants: false })).toEqual(['back', 'inc', 'mine', 'own', 'theirs']);
+    // An attack on the player has no layer of its own: nothing switches it off.
+    for (const layer of ['ownAttacks', 'support', 'merchants', 'nearby'] as const) expect(kinds({ [layer]: false })).toContain('inc');
   });
 
   it('incoming attack never carries units even if the state has them', () => {

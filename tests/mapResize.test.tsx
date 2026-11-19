@@ -41,10 +41,12 @@ const grip = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-map-resize]
 const minimap = (c: HTMLElement) => c.querySelector<SVGElement>('svg[data-minimap]')!;
 /** The wooden frame box around the map surface. */
 const frame = (c: HTMLElement) => surface(c).closest<HTMLElement>('.frame-wood')!;
-/** The row/column box the map and the minimap sit in. */
-const layout = (c: HTMLElement) => frame(c).parentElement!;
-/** The box that holds the minimap and the details panel, under or beside the map. */
-const under = (c: HTMLElement) => minimap(c).parentElement as HTMLElement;
+/** The row/column box the map and the minimap sit in (the frame may sit in a column of its own under it). */
+const layout = (c: HTMLElement) => {
+  let el: HTMLElement | null = frame(c).parentElement;
+  while (el && !/\bflex-row\b|\bflex-col\b/.test(el.className)) el = el.parentElement;
+  return el!;
+};
 
 function showMap(): HTMLElement {
   return render(<MapView />).container;
@@ -96,6 +98,41 @@ describe('resizing the map from its bottom-right corner', () => {
     }
   });
 
+  it('the corner grows the map taller as well as wider', () => {
+    const restore = setWidth(DESKTOP_W);
+    // happy-dom lays nothing out, so every rect is zero and no ceiling ever binds. Give the wrapper a top offset and
+    // the bar a height: this is the case that used to pin the default window to the ceiling, leaving the corner with
+    // nowhere to pull the map taller.
+    const proto = globalThis.HTMLElement.prototype as unknown as Record<string, unknown>;
+    const originalRect = Object.getOwnPropertyDescriptor(proto, 'getBoundingClientRect');
+    Object.defineProperty(proto, 'getBoundingClientRect', {
+      configurable: true,
+      value: function (this: HTMLElement) {
+        const bar = this.hasAttribute('data-above');
+        const top = bar ? 0 : 280;
+        const height = bar ? 80 : 0;
+        return { top, left: 0, right: 0, bottom: top + height, width: 0, height, x: 0, y: top, toJSON: () => ({}) };
+      },
+    });
+    try {
+      const c = showMap();
+      const before = parseInt(surface(c).style.height, 10);
+      // A straight pull downwards must still have somewhere to go: the bar is left out of the drag ceiling on purpose,
+      // so a window the player drags out may run past the fold and the page scrolls instead.
+      fireEvent.pointerDown(grip(c)!, { pointerId: 1, pointerType: 'mouse', clientX: 700, clientY: 500 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 700, clientY: 620 });
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 700, clientY: 620 });
+      expect(parseInt(surface(c).style.height, 10)).toBeGreaterThan(before);
+      expect(readMapWindow()!.h).toBeGreaterThan(before);
+      // Width is untouched by a straight pull down.
+      expect(surface(c).style.width).toBe(`${MAX_W}px`);
+    } finally {
+      if (originalRect) Object.defineProperty(proto, 'getBoundingClientRect', originalRect);
+      else delete proto.getBoundingClientRect;
+      restore();
+    }
+  });
+
   it('dragging past the width the minimap needs moves the minimap under the map', () => {
     const restore = setWidth(DESKTOP_W);
     try {
@@ -110,11 +147,37 @@ describe('resizing the map from its bottom-right corner', () => {
       expect(layout(c).className).toContain('flex-col');
       const mm = minimap(c).getBoundingClientRect();
       expect(mm.top).toBeGreaterThanOrEqual(map.bottom);
-      // Centred under the map: the row under it is exactly as wide as the frame, so `justify-center` lands on the map
-      // however wide the map is — while the map itself stays where it was, at the left of the row.
+      // The minimap takes a line of its own under the map, as wide as the frame and centred in it, so it lands on the
+      // map however wide the map is.
       expect(layout(c).className).toContain('items-start');
-      expect(under(c).style.width).toBe(`${parseFloat(surface(c).style.width) + FRAME_W}px`);
-      expect(Math.abs(mm.left + mm.width / 2 - (map.left + map.width / 2))).toBeLessThanOrEqual(1);
+      const band = c.querySelector<HTMLElement>('[data-under]')!;
+      expect(band.contains(minimap(c))).toBe(true);
+      expect(band.style.width).toBe(`${parseFloat(surface(c).style.width) + FRAME_W}px`);
+      expect(band.className).toContain('justify-center');
+    } finally {
+      restore();
+    }
+  });
+
+  it('the display bar keeps its width while the corner is dragged', () => {
+    const restore = setWidth(DESKTOP_W);
+    try {
+      const c = showMap();
+      const bar = c.querySelector<HTMLElement>('[data-above]')!;
+      const width = bar.style.width;
+      const mapBefore = surface(c).style.width;
+      // Narrow, then wider than the room: the bar spans the room either way, so its controls never reflow.
+      fireEvent.pointerDown(grip(c)!, { pointerId: 1, pointerType: 'mouse', clientX: 700, clientY: 500 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 400, clientY: 400 });
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 400, clientY: 400 });
+      expect(surface(c).style.width).not.toBe(mapBefore);
+      expect(bar.style.width).toBe(width);
+      fireEvent.pointerDown(grip(c)!, { pointerId: 1, pointerType: 'mouse', clientX: 700, clientY: 500 });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 4000, clientY: 500 });
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 4000, clientY: 500 });
+      expect(bar.style.width).toBe(width);
+      // And it is as wide as the room the map stands in, not as the map.
+      expect(bar.style.width).toBe(`${DESKTOP_W}px`);
     } finally {
       restore();
     }

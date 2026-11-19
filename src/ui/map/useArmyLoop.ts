@@ -28,9 +28,10 @@ export function applyMarker(el: SVGGElement, s: ReturnType<typeof markerState>):
 
 /**
  * Moves the bound markers every animation frame (or on every clock tick with animations off) without re-rendering,
- * like the village walkers. Returns a ref binder per army id.
+ * like the village walkers. Returns a ref binder per army id. With `enabled` false nothing is moved: the callers
+ * draw no markers then, so the frame loop would only write to hidden nodes.
  */
-export function useArmyLoop(armies: MapArmy[], toPx: ToPx, mode: AnimationMode, seed: number, clock: ArmyClock, isVillage: (x: number, y: number) => boolean): (id: string) => (el: SVGGElement | null) => void {
+export function useArmyLoop(armies: MapArmy[], toPx: ToPx, mode: AnimationMode, seed: number, clock: ArmyClock, isVillage: (x: number, y: number) => boolean, enabled = true): (id: string) => (el: SVGGElement | null) => void {
   const nodes = useRef(new Map<string, SVGGElement>());
   const state = useRef({ armies, toPx, seed, clock, isVillage });
   state.current = { armies, toPx, seed, clock, isVillage };
@@ -42,6 +43,7 @@ export function useArmyLoop(armies: MapArmy[], toPx: ToPx, mode: AnimationMode, 
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     const update = () => {
       const { armies: as, toPx: px, seed: sd, clock: ck, isVillage: iv } = state.current;
       const now = ck.now();
@@ -57,7 +59,7 @@ export function useArmyLoop(armies: MapArmy[], toPx: ToPx, mode: AnimationMode, 
       raf = requestAnimationFrame(frame);
     }
     return () => { unsubscribe(); if (raf) cancelAnimationFrame(raf); };
-  }, [mode, hidden, clock]);
+  }, [mode, hidden, clock, enabled]);
 
   return bind;
 }

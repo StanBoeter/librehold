@@ -23,7 +23,7 @@ import { PopIcon, ResourceIcon } from '../components/ResourceIcon';
 import { Countdown } from '../components/Countdown';
 import type { VillageIntel, WorldConfig } from '../../engine/types';
 import { playerCommands } from '../../engine/commands';
-import { armiesOnMap, hiddenFarm, type MapArmy } from '../map/armies';
+import { armiesOnMap, hiddenFarm, withArmyLayers, type ArmyLayers, type MapArmy } from '../map/armies';
 import { gameArmyClock } from '../map/gameArmyClock';
 import { TileMap, ZOOM_MAX, type Dot, type TileMapView } from '../map/TileMap';
 import { ArmyCard } from '../map/ArmyCard';
@@ -337,6 +337,99 @@ function SidePanel({ sel, onClose }: { sel: { x: number; y: number }; onClose: (
 }
 
 
+/**
+ * The map's whole toolbar, in a bar over the map rather than along its header: where the player is looking (my village,
+ * zoom, go to coordinates) and what is drawn there (the army layers, the icons, the players' colours and the size of
+ * the villages left out). `colors`, `maxPoints` and the navigation stay the caller's state; everything else is a
+ * remembered preference.
+ */
+function MapDisplayPanel(p: {
+  colors: boolean; onColors: (on: boolean) => void; maxPoints: number; onMaxPoints: (n: number) => void;
+  onMyVillage: () => void; zoomIdx: number; onZoom: (delta: number) => void;
+  goto: string; onGoto: (v: string) => void; onGo: (x: number, y: number) => void;
+}) {
+  const { colors, onColors, maxPoints, onMaxPoints } = p;
+  const icons = useUiStore((s) => s.prefs.mapIcons);
+  const nearby = useUiStore((s) => s.prefs.mapNearbyAttacks);
+  const ownAttacks = useUiStore((s) => s.prefs.mapOwnAttacks);
+  const support = useUiStore((s) => s.prefs.mapSupport);
+  const merchants = useUiStore((s) => s.prefs.mapMerchants);
+  const setPrefs = useUiStore((s) => s.setPrefs);
+  const open = useUiStore((s) => s.prefs.mapToolbarOpen);
+  const showFarm = useGameStore((s) => !s.game!.farmAssistant.hideOnMap);
+  const hideFarm = useGameStore((s) => s.hideFarmOnMap);
+  const box = (checked: boolean, onChange: (on: boolean) => void, label: string, hint: string) => (
+    <label className="inline-flex items-center gap-1" title={hint}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> {label}
+    </label>
+  );
+  return (
+    <fieldset className={open ? 'panel px-2 py-1.5 text-[12px]' : 'w-fit ml-auto text-[12px]'} data-map-display>
+      {/* The switches say what they do; the legend stays as the fieldset's name for screen readers. */}
+      <legend className="sr-only">{tr('map.display')}</legend>
+      {/* A bar this tall is a third of a phone screen, so it folds away. The switch is a plain glyph at the end of the
+          row rather than a header of its own: a header would give back the space folding it saves. */}
+      <div className="flex items-start gap-1.5">
+        {open && (
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 flex-1">
+            {/* Where the player is looking. It shares the bar with what is drawn there: one toolbar for the map, rather
+                than a page-wide strip above it that reads as a leftover. The gaps are tight so the three groups still
+                sit on one line at 1280 px. */}
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <button className="btn" onClick={p.onMyVillage}>{tr('map.myVillage')}</button>
+              <button className="btn" onClick={() => p.onZoom(-1)} disabled={p.zoomIdx === 0}>＋</button>
+              <button className="btn" onClick={() => p.onZoom(1)} disabled={p.zoomIdx === ZOOM_MAX}>－</button>
+              <form
+                className="inline-flex items-center gap-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const m = p.goto.match(/^\s*(\d+)\s*[|,;: ]\s*(\d+)\s*$/);
+                  if (m) p.onGo(Number(m[1]), Number(m[2]));
+                }}
+              >
+                <input
+                  className="w-14 px-1 border border-wood-border rounded bg-white/50" placeholder="x|y"
+                  value={p.goto} onChange={(e) => p.onGoto(e.target.value)}
+                />
+                <button className="btn" type="submit">{tr('map.go')}</button>
+              </form>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span className="text-muted" title={tr('map.armiesHint')}>{tr('map.armies')}</span>
+              {box(ownAttacks, (on) => setPrefs({ mapOwnAttacks: on }), tr('map.showOwnAttacks'), tr('map.showOwnAttacksHint'))}
+              {box(nearby, (on) => setPrefs({ mapNearbyAttacks: on }), tr('map.showNearby'), tr('map.showNearbyHint'))}
+              {box(support, (on) => setPrefs({ mapSupport: on }), tr('map.showSupport'), tr('map.showSupportHint'))}
+              {box(merchants, (on) => setPrefs({ mapMerchants: on }), tr('map.showMerchants'), tr('map.showMerchantsHint'))}
+              {box(showFarm, (on) => void hideFarm(!on), tr('map.showFarm'), tr('map.showFarmHint'))}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              {box(icons, (on) => setPrefs({ mapIcons: on }), tr('map.showIcons'), tr('map.showIconsHint'))}
+              {box(colors, onColors, tr('map.playerColors'), tr('map.playerColorsHint'))}
+              <label className="inline-flex items-center gap-1" title={tr('map.hideOverHint')}>
+                {tr('map.hideOver')}
+                <NumberInput className="w-16 px-1 border border-wood-border rounded bg-white/50" min={0} value={maxPoints} onValue={onMaxPoints} />
+                {tr('map.ptsShort')}
+              </label>
+            </div>
+          </div>
+        )}
+        <button
+          className={open
+            ? 'btn !px-1.5 !py-0 !text-[11px] leading-4 shrink-0 ml-auto'
+            : 'btn !px-2 !py-0.5 !text-[12px] shrink-0'}
+          onClick={() => setPrefs({ mapToolbarOpen: !open })}
+          title={open ? tr('village.collapse') : tr('village.expand')}
+          aria-expanded={open}
+          data-map-toolbar-toggle
+        >
+          {open ? '−' : '+'}
+        </button>
+      </div>
+    </fieldset>
+  );
+}
+
+
 /** The player's map: their world through the shared tile map, with the village menu, details and army card. */
 export function MapView() {
   const active = useGameStore(useShallow((s) => { const v = selectActiveVillage(s); return { x: v.x, y: v.y, id: v.id }; }));
@@ -355,7 +448,19 @@ export function MapView() {
   const dotsJson = useGameStore(selectCommandDots);
   const dots = useMemo(() => JSON.parse(dotsJson) as Record<string, Dot>, [dotsJson]);
   const armiesJson = useGameStore((s) => JSON.stringify(armiesOnMap(s.game!)));
-  const armies = useMemo(() => JSON.parse(armiesJson) as MapArmy[], [armiesJson]);
+  const allArmies = useMemo(() => JSON.parse(armiesJson) as MapArmy[], [armiesJson]);
+  const showIcons = useUiStore((s) => s.prefs.mapIcons);
+  const showNearby = useUiStore((s) => s.prefs.mapNearbyAttacks);
+  const showOwnAttacks = useUiStore((s) => s.prefs.mapOwnAttacks);
+  const showSupport = useUiStore((s) => s.prefs.mapSupport);
+  const showMerchants = useUiStore((s) => s.prefs.mapMerchants);
+  const setPrefs = useUiStore((s) => s.setPrefs);
+  const layers = useMemo<ArmyLayers>(
+    () => ({ nearby: showNearby, ownAttacks: showOwnAttacks, support: showSupport, merchants: showMerchants }),
+    [showNearby, showOwnAttacks, showSupport, showMerchants],
+  );
+  /** Attacks on the player are their own and are never hidden by a layer toggle. */
+  const armies = useMemo(() => withArmyLayers(allArmies, layers), [allArmies, layers]);
   const animations = useUiStore((s) => s.prefs.animations);
   const mapCenter = useUiStore((s) => s.mapCenter);
   const [center, setCenter] = useState<{ x: number; y: number }>(() => mapCenter ?? { x: active.x + 0.5, y: active.y + 0.5 });
@@ -365,8 +470,6 @@ export function MapView() {
   const [colors, setColors] = useState(true);
   const [details, setDetails] = useState(false);
   const [maxPoints, setMaxPoints] = useState(99999);
-  const showFarm = useGameStore((s) => !s.game!.farmAssistant.hideOnMap);
-  const hideFarm = useGameStore((s) => s.hideFarmOnMap);
   const [goto, setGoto] = useState('');
 
   useEffect(() => {
@@ -379,6 +482,10 @@ export function MapView() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [sel, selArmy]);
+  // An army card goes with its army: hiding a passing army must not leave its card behind.
+  useEffect(() => {
+    if (selArmy && !armies.some((a) => a.id === selArmy)) setSelArmy(null);
+  }, [armies, selArmy]);
   const closeArmy = useCallback(() => setSelArmy(null), []);
 
   const loadRegion = useCallback((x0: number, y0: number, x1: number, y1: number) => {
@@ -411,38 +518,10 @@ export function MapView() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2 mb-2 text-[12px]">
-        <h2 className="text-lg mr-2">{tr('map.title')}</h2>
-        <button className="btn" onClick={() => setCenter({ x: active.x + 0.5, y: active.y + 0.5 })}>{tr('map.myVillage')}</button>
-        <button className="btn" onClick={() => zoomBy(-1)} disabled={zoomIdx === 0}>＋</button>
-        <button className="btn" onClick={() => zoomBy(1)} disabled={zoomIdx === ZOOM_MAX}>－</button>
-        <form
-          className="inline-flex items-center gap-1"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const m = goto.match(/^\s*(\d+)\s*[|,;: ]\s*(\d+)\s*$/);
-            if (m) { setCenter(clampCenter({ x: Number(m[1]) + 0.5, y: Number(m[2]) + 0.5 })); setSel({ x: Number(m[1]), y: Number(m[2]) }); setDetails(false); }
-          }}
-        >
-          <input className="w-20 px-1 border border-wood-border rounded bg-white/50" placeholder="x|y" value={goto} onChange={(e) => setGoto(e.target.value)} />
-          <button className="btn" type="submit">{tr('map.go')}</button>
-        </form>
-        <label className="inline-flex items-center gap-1 sm:ml-auto">
-          <input type="checkbox" checked={colors} onChange={(e) => setColors(e.target.checked)} /> {tr('map.playerColors')}
-        </label>
-        <label className="inline-flex items-center gap-1">
-          {tr('map.hideOver')}
-          <NumberInput className="w-20 px-1 border border-wood-border rounded bg-white/50" min={0} value={maxPoints} onValue={setMaxPoints} />
-          {tr('map.ptsShort')}
-        </label>
-        <label className="inline-flex items-center gap-1" title={tr('map.showFarmHint')}>
-          <input type="checkbox" checked={showFarm} onChange={(e) => void hideFarm(!e.target.checked)} /> {tr('map.showFarm')}
-        </label>
-      </div>
       <TileMap
         mapSize={mapSize} seed={seed} revision={`${mapRev}|${villageSummary}`} useTile={useTile} isVillage={isVillage}
         dots={dots} activeId={active.id} minimapDots={minimapDots} armies={armies} clock={gameArmyClock} animations={animations}
-        center={center} onCenter={setCenter} zoomIdx={zoomIdx} onZoom={zoomBy} colors={colors} maxPoints={maxPoints}
+        center={center} onCenter={setCenter} zoomIdx={zoomIdx} onZoom={zoomBy} colors={colors} maxPoints={maxPoints} icons={showIcons}
         selected={sel} onRegion={loadRegion} onHover={(h) => setHover.current(h)}
         onSelectTile={(x, y, village) => {
           setSelArmy(null);
@@ -464,6 +543,15 @@ export function MapView() {
             {!view.wide && popup(view, true)}
           </>
         )}
+        above={
+          <MapDisplayPanel
+            colors={colors} onColors={setColors} maxPoints={maxPoints} onMaxPoints={setMaxPoints}
+            onMyVillage={() => setCenter({ x: active.x + 0.5, y: active.y + 0.5 })}
+            zoomIdx={zoomIdx} onZoom={zoomBy}
+            goto={goto} onGoto={setGoto}
+            onGo={(x, y) => { setCenter(clampCenter({ x: x + 0.5, y: y + 0.5 })); setSel({ x, y }); setDetails(false); }}
+          />
+        }
         side={sel && details ? <SidePanel sel={sel} onClose={() => setDetails(false)} /> : undefined}
       />
       <p className="text-muted text-[11px] mt-4">
