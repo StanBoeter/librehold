@@ -35,10 +35,12 @@ func noblesReady(w World, botID PlayerID) int {
 func ChoosePurpose(w World, botID PlayerID, k *KnownVillage) Purpose {
 	b := brainOf(w, botID)
 	v := w.Village(k.ID)
-	def, knownDef := KnownDefence(k)
 	// "Can this army take the place?" A bot only sends a train at a defence it has actually counted, and only if its
 	// army is comfortably bigger. Not knowing is a reason to look first, not a reason to give up on the idea for ever.
-	clearable := knownDef && def < 0.8*OwnOffence(w, botID)
+	// Judged on the line that would actually march, not on the bot's strongest garrison: a defence village's wall of
+	// spears and heavy cavalry is not an attacking army, so measuring the target against it offers clears this bot
+	// could never carry out and hides the ones it could win.
+	clearable := Clearable(w, botID, k)
 	payback := 1.0
 	if k.OwnerID != "" && PlayerID(k.OwnerID) == HardFarmer(w, botID) {
 		payback = 3
@@ -64,6 +66,29 @@ func ChoosePurpose(w World, botID PlayerID, k *KnownVillage) Purpose {
 		}
 		options = append(options, Option[Purpose]{"conquer", score})
 	}
+	// A bot that has counted a garrison it can beat marches its offensive line at that village to break it. This is the
+	// answer to a neighbour who is out-growing the bot: looting him takes what is in his stores, but his army is still
+	// there tomorrow, and a bot that only ever farms a player feeds a rival instead of slowing him down.
+	//
+	// It needs numbers for the same reason a hetman train does, but it is not a train: a clear is what a bot does when it
+	// has an army and no hetmen, which is most bots on most days.
+	if clearable && clearReady(w, botID) {
+		score := 1.5
+		if b.Style == StyleAggressor {
+			score = 2.5
+		}
+		options = append(options, Option[Purpose]{"clear", score * payback})
+	}
+	// A bot with a real army and no numbers to go on sometimes just throws it: people attack without scouting when the
+	// target looks weak enough, and a bot that never takes that risk is not playing like one. It is a gamble on points,
+	// not on a count, and it is the only path here that does not require knowing the garrison.
+	if !clearable && allInReady(w, botID) {
+		score := 0.6
+		if b.Style == StyleAggressor {
+			score = 1.2
+		}
+		options = append(options, Option[Purpose]{"allIn", score * payback})
+	}
 	cats := 0
 	for _, x := range PlayerVillages(w, botID) {
 		cats = max(cats, x.Units[UCatapult])
@@ -86,14 +111,37 @@ func ChoosePurpose(w World, botID PlayerID, k *KnownVillage) Purpose {
 	return WeightedPick(rngFor(w, botID, "purpose", k.ID), options, b.Skill)
 }
 
-// harassReady: the bot has scouts to spare for a set of probes. Four parties is the most LaunchHarass can send, so a bot
-// holding less than that keeps them for looking into a target it actually means to attack.
+// allInReady: the bot has an army worth gambling. Below this it is not a gamble, it is a gift.
+func allInReady(w World, botID PlayerID) bool {
+	for _, v := range PlayerVillages(w, botID) {
+		if allInArmy(v).Total() >= BotConfig.AllInMin {
+			return true
+		}
+	}
+	return false
+}
+
+// clearReady: one of the bot's villages holds a line worth marching at a village. The same bar as a gamble, because it
+// is the same army: below it a clear is not a clear, it is a donation, and the soldiers lost are the ones that would have
+// defended the village they came from.
+func clearReady(w World, botID PlayerID) bool {
+	for _, v := range PlayerVillages(w, botID) {
+		if clearArmy(v).Total() >= ClearMin {
+			return true
+		}
+	}
+	return false
+}
+
+// harassReady: the bot has a scouting party to spend on probing. One party is the bar, not four: LaunchHarass sends up
+// to four when it can, but a bot that could not probe with a single party would never scout anybody, and the party size
+// and this gate must not move together — raising the party would then make harassing harder, not easier.
 func harassReady(w World, botID PlayerID) bool {
 	have := 0
 	for _, v := range PlayerVillages(w, botID) {
 		have += v.Units[UScout]
 	}
-	return have >= 4*ScoutParty
+	return have >= ScoutParty
 }
 
 // nightLanding is the first instant ≥ earliest in the target's local night (00:00–06:00) or offline window.
@@ -242,6 +290,69 @@ func decoys(w World, botID PlayerID, owner PlayerID, exceptID string, T int64, r
 	}
 }
 
+// clearArmy is the line a bot takes a village's troops apart with: axes to break the wall's infantry and light cavalry
+// for the reach and the haul. Mounted archers go along when a village fields them, since they hit infantry from outside
+// its reach. Heavy cavalry stays home — it is the wall's counter-attack — and so do swords, spears, archers and scouts:
+// clearing is what the offensive line is for.
+func clearArmy(v *Village) UnitCounts {
+	units := UnitCounts{}
+	for _, u := range []UnitID{UAxe, ULightCav, UMountedArcher, URam} {
+		if n := v.Units[u]; n > 0 {
+			units[u] = n
+		}
+	}
+	return units
+}
+
+// ClearMin is the smallest force worth marching at another player to hurt him. Below it a bot is not clearing a village,
+// it is donating an army: a village with a handful of axes cannot beat a garrison, and the soldiers it loses are the ones
+// it needed to defend itself. Farm raids have their own, smaller floor — this one is about taking a village apart.
+const ClearMin = 500
+
+// LaunchClear: the whole offensive line of the bot's strongest village at another player's village, to destroy what is
+// behind the wall. Taking the village is a hetman's job (LaunchConquest); this is the step before it, and the answer to a
+// neighbour who is out-growing the bot: a player whose army is broken cannot farm, cannot defend and cannot expand, so a
+// bot that only ever looted him was feeding a rival.
+//
+// It goes only at a garrison the bot has counted. "I can beat what I know" is true of every unscouted village, since
+// under the fog of war an unscouted one has an empty garrison in the bot's memory — the risk of attacking blind is what
+// the all-in is for, not the plan. Numbers that have aged past IntelStaleHours are not counted either: a player who
+// rebuilt since then is exactly the one this must not walk into.
+func LaunchClear(w World, botID PlayerID, k *KnownVillage) bool {
+	if k == nil || k.OwnerID == "" || PlayerID(k.OwnerID) == botID {
+		return false
+	}
+	if _, known := KnownDefence(k); !known || intelStale(w, k) {
+		return false
+	}
+	from, army := offensiveVillage(w, botID)
+	if from == nil || army.Total() < ClearMin {
+		return false
+	}
+	if !beats(from, k, army) {
+		return false
+	}
+	if len(CheckSend(w, botID, from.ID, k.X, k.Y, army, "attack").Blockers) > 0 {
+		return false
+	}
+	at := w.Now() + SendJitter(w, botID, "clear:"+k.ID)
+	if pastTheBell(w, at) {
+		return false
+	}
+	// A clear is loud, so it goes when the owner is least likely to be watching: the troops that would meet it are the
+	// ones standing at home, and there is no reason to let him pull them out of the way.
+	if night, ok := LandAfterDodge(w, botID, PlayerID(k.OwnerID), at, rngFor(w, botID, "clear", k.ID)); ok {
+		at = night
+	} else if !IsShort(w.Config()) && rngFor(w, botID, "clearnight", k.ID)() < 0.5 {
+		at = int64(nightLanding(w, k.OwnerID, float64(at), rngFor(w, botID, "clearland", k.ID)))
+	}
+	in := ScheduleSendInput{OriginID: from.ID, X: k.X, Y: k.Y, Units: army, Type: "attack", Mode: "arriveAt", At: at}
+	return actSoft(w, botID, "schedule-send", in, func() error {
+		_, err := ScheduleSend(w, botID, in)
+		return err
+	})
+}
+
 // LaunchConquest: a clearing nuke at T, up to 4 nobles (from several villages) right behind it (strong: every
 // 100 ms, weak: randomly up to 5 s), the first escorted by 300 axes, the others by 100. A strong bot aims at the
 // owner's offline window when it knows it, and scatters decoys.
@@ -332,6 +443,68 @@ func LaunchConquest(w World, botID PlayerID, k *KnownVillage) {
 	}
 }
 
+// allInArmy is what a bot throws at a village it has decided to gamble on: the whole offensive army of its strongest
+// village, minus nothing. A gamble is only worth the name if the stake is real — a token force that loses teaches the
+// bot no more than a scout would, and wastes the army it was meant to risk.
+func allInArmy(v *Village) UnitCounts {
+	units := UnitCounts{}
+	for _, u := range UnitIDs {
+		switch u {
+		case UAxe, ULightCav, UMountedArcher, UHeavyCav, URam, UCatapult:
+			units[u] = v.Units[u]
+		}
+	}
+	return units
+}
+
+// LaunchAllIn: the whole army at one village, on the strength of its points rather than a count of its garrison. People
+// attack without scouting when they think the target looks weak enough, and lose; a bot that never does the same is not
+// playing like a person. It is rare on purpose — this is a gamble that can cost a bot its army, so it must not become
+// its habit.
+func LaunchAllIn(w World, botID PlayerID, k *KnownVillage) bool {
+	if k == nil {
+		return false
+	}
+	b := brainOf(w, botID)
+	rng := rngFor(w, botID, "allin", k.ID)
+	if rng() >= BotConfig.AllInChance {
+		return false
+	}
+	var from *Village
+	var army UnitCounts
+	for _, v := range villagesByDistance(w, botID, k.X, k.Y) {
+		units := allInArmy(v)
+		if units.Total() > army.Total() {
+			from, army = v, units
+		}
+	}
+	if from == nil || army.Total() < BotConfig.AllInMin {
+		return false
+	}
+	if len(CheckSend(w, botID, from.ID, k.X, k.Y, army, "attack").Blockers) > 0 {
+		return false
+	}
+	at := w.Now() + SendJitter(w, botID, "allin:"+k.ID)
+	if pastTheBell(w, at) {
+		return false
+	}
+	landed := false
+	if k.OwnerID != "" && b.Skill >= 0.7 {
+		// Even a gamble is landed when the owner is least likely to be watching, if the bot has noticed when that is.
+		if night, ok := LandAfterDodge(w, botID, PlayerID(k.OwnerID), at, rng); ok {
+			at, landed = night, true
+		}
+	}
+	if !landed {
+		at += BotDur(w, int64(rng()*30*float64(MsPerMinute)))
+	}
+	in := ScheduleSendInput{OriginID: from.ID, X: k.X, Y: k.Y, Units: army, Type: "attack", Mode: "arriveAt", At: at}
+	return actSoft(w, botID, "schedule-send", in, func() error {
+		_, err := ScheduleSend(w, botID, in)
+		return err
+	})
+}
+
 // LaunchOperation runs an operation on the campaign target, with a purpose fitted to the situation.
 func LaunchOperation(w World, botID PlayerID, k *KnownVillage) Purpose {
 	purpose := ChoosePurpose(w, botID, k)
@@ -346,6 +519,18 @@ func LaunchOperation(w World, botID PlayerID, k *KnownVillage) Purpose {
 		LaunchDemolish(w, botID, k, b)
 	case "farmPlayer":
 		LaunchFarmPlayer(w, botID, k)
+	case "clear":
+		if !LaunchClear(w, botID, k) {
+			// Nothing to clear with after all: fall back to what the village can actually do rather than spending the
+			// session on nothing.
+			LaunchFarmPlayer(w, botID, k)
+		}
+	case "allIn":
+		if !LaunchAllIn(w, botID, k) {
+			// The gamble did not go out after all (the roll, or nothing worth sending): fall back to a probe rather
+			// than spending the session on nothing.
+			LaunchHarass(w, botID, k)
+		}
 	case "hold":
 		// Nothing worth sending: the bot waits and builds instead of spending troops it cannot spare.
 	default:

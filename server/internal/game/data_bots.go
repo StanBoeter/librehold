@@ -48,6 +48,8 @@ var BotConfig = struct {
 	NukeAttack            float64              `json:"nukeAttack"`
 	WeakExpandDailyChance float64              `json:"weakExpandDailyChance"`
 	IntelStaleHours       float64              `json:"intelStaleHours"`
+	AllInChance           float64              `json:"allInChance"`
+	AllInMin              int                  `json:"allInMin"`
 	OffShare              map[BotStyle]float64 `json:"offShare"`
 	StyleWeights          map[BotStyle]float64 `json:"styleWeights"`
 }{
@@ -82,6 +84,11 @@ var BotConfig = struct {
 	NukeAttack:            150_000,
 	WeakExpandDailyChance: 0.3,
 	IntelStaleHours:       24,
+	// A bot very occasionally throws its whole army at a village without knowing what is there — people do that, and
+	// losing the gamble is part of playing like one. AllInMin keeps it to armies that would actually hurt, so a "gamble"
+	// is never a handful of axes.
+	AllInChance: 0.12,
+	AllInMin:    2000,
 	OffShare: map[BotStyle]float64{StyleAggressor: 0.75, StyleFarmer: 0.6, StyleOpportunist: 0.6,
 		StylePointBuilder: 0.5, StyleTurtle: 0.3},
 	StyleWeights: map[BotStyle]float64{StyleFarmer: 1, StyleTurtle: 1, StyleAggressor: 1, StylePointBuilder: 1,

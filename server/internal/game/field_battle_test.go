@@ -741,4 +741,42 @@ func TestVillageScoutFogOfWar(t *testing.T) {
 			t.Fatalf("caught scouts still filled the intel: %+v", in.Intel.Units)
 		}
 	})
+
+	t.Run("the defending scouts pay for stopping a party", func(t *testing.T) {
+		// A scouting fight is a fight: the scouts that caught the party were in it, so the village is short of them
+		// afterwards rather than untouched.
+		w, home := gametest.NewTestWorld(97)
+		w.Player("h1").ProtectedUntil = 0
+		gametest.NewHumanPlayer(w, "h2")
+		den := gametest.AddStartVillage(w, "h2", home.X+2, home.Y)
+		den.Units[game.UScout] = 400
+		home.Units[game.UScout] = 300
+
+		c, err := game.SendCommand(w, "h1", home.ID, den.X, den.Y, game.UnitCounts{game.UScout: 300}, "attack", game.SendOpts{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := gametest.Advance(w, c.ArrivesAt); err != nil {
+			t.Fatal(err)
+		}
+		var report *game.Report
+		for _, r := range w.ReportsOf("h2") {
+			if r.Type == "scout" {
+				report = r
+			}
+		}
+		if report == nil {
+			t.Fatal("the defender gets the scouting report")
+		}
+		if report.Defender.Losses.Total() == 0 {
+			t.Fatalf("the defence lost nobody to a party of 300: %+v", report.Defender)
+		}
+		// What the report says and what is standing in the village have to agree.
+		if got, want := den.Units[game.UScout], 400-report.Defender.Losses[game.UScout]; got != want {
+			t.Fatalf("the village kept %d scouts but the report says %d", got, want)
+		}
+		if den.Units[game.UScout] >= 400 {
+			t.Fatal("the garrison was not actually reduced")
+		}
+	})
 }

@@ -131,6 +131,59 @@ and marches in progress finish at their own times.
   blinded by it: what the report would hide is inside his own walls. Scouts marched along with a real army are not a
   scouting mission at all (`IsScoutMission` needs nothing but scouts), so whether they live or die makes no difference
   to what a surviving attack learned.
+- **A scouting fight is a fight.** Luck applies to scouts as it does everywhere else, so a party and a garrison is not a
+  lookup table: a party landing between about 1.6× and 2.7× the guard's strength wins sometimes and loses sometimes.
+  The escalation bands straddle that range on purpose, so climbing them crosses a fight that is genuinely open rather
+  than one decided on paper. Both sides lose scouts either way — a caught party still kills some of the scouts that
+  caught it, the more the closer it came to getting through — so keeping scouts at home is a real cost, not a free
+  shield. Only scouts fight: whatever else is standing in the village is untouched.
+- **Bots loot barbarians freely, and players only after looking inside.** A barbarian is a farm: empty is what it is,
+  so a raid on it needs no scouting and can be sized the moment it refills. A player's village is different. A raid is
+  sized by simulating against the garrison the bot remembers, and with no memory of the village that garrison is empty, so
+  the raid "wins" on paper and the troops are lost for nothing. So a human's village is only farmed once the bot has
+  actually scouted it and holds a real count. Another bot's village needs no look, because a bot puts its army out to farm
+  and is empty far more often than not.
+- **A player is raided by a column, a barbarian by whoever can carry.** A person's village holds far more than a hut, and
+  a party sized for a hut takes a fraction of it — so a raid on a player is a share of the raiders the village has
+  (`PlayerRaidShare`, three quarters), and never fewer than `PlayerRaidFloor` units. A player reads his reports, and a
+  handful of horsemen a dozen times a day reads as a broken attack rather than a raid. The garrison the bot counted
+  decides only whether it is safe to go. A barbarian keeps the smallest group that wins, because nobody reads those
+  reports and every horseman left at home could be raiding somewhere else. A village that cannot field a column keeps
+  farming barbarians and leaves players alone until it can — and a player target it has to refuse does not use up the
+  misses that end a farm run early.
+- **A bot with an army and numbers breaks the village next door.** Looting a player takes what is in his stores; his army
+  is still there tomorrow, and a bot that only ever farms a rival feeds him. So a bot that has counted a garrison it can
+  beat marches the whole offensive line of its strongest village at it, with no hetman and no need to take the village —
+  a clear (`ClearMin` units) at the hour its owner is least likely to be watching. The target has to be one the bot
+  actually looked into, with numbers no older than `IntelStaleHours`: attacking blind is the all-in gamble, not the plan.
+- **Bots loot with whatever can carry, and clear with axes.** A raiding party is picked from the units a village actually
+  holds, best first: light cavalry, then heavy cavalry and mounted archers, then axes, then spears as a last resort.
+  Sword and archer infantry never leave — they carry little and they are the wall. Looting is the only thing a heavy
+  cavalryman is ever sent out for: a clear builds its force from axes, light cavalry, mounted archers and rams, so a
+  defence village can forage with its heavies without ever marching them out as an attack. A raid has to come home
+  without losses to be worth making; a clear expects losses, and only has to win.
+- **Every role keeps a line of light cavalry**, including the defence roles, because a village pays for its plan by
+  looting and production alone does not keep up with heavy cavalry at 600 iron apiece. For a defence village those
+  horsemen are the only troops it can spare, since its battle line has to stay behind the wall.
+- **Bots field different armies, not smaller ones.** Each role has a set of `TroopVariants` — an offence village is an
+  axe horde, a cavalry wing, a siege train, horse archers, a wrecking crew, skirmishers, a mounted host or light riders;
+  a defence village is a wall of spears, an infantry wall, mixed arms, an archer wall, a sword wall, a cavalry reserve, a
+  militia levy or shield and bow — and the mixed role fields a balanced field army of spears, swords, axes, bows and
+  cavalry. A village rolls one from its own id, so a replay of the same world trains the same armies. Every variant of a
+  role is held to the same strength, measured through `ResolveBattle` rather than by population alone (unit lines defend
+  at very different values), so villages differ in what they field rather than in how strong they are. The scout line is
+  deliberately *not* identical: a village with 250 scouts cannot look into anything, while the cavalry wing's 1,400 can,
+  so reconnaissance is not one part of a village a player can read off the map.
+- **A plan has to fit the farm it is built for.** A role's plan is a cap, and a village trains the unit that is
+  furthest behind first, so a plan larger than the farm it stands in is worse than a small one: the village pours
+  everything into one expensive line, never finishes it, and never gets the rest of its army. Every plan is therefore
+  sized against the farm of the village the role builds — its finished buildings and the room `popRoom` holds back for
+  nobles and building work, not the raw capacity — and `TestPlansFitTheirOwnFarm` holds them to it.
+- **Bots sometimes gamble.** Very occasionally (`BotConfig.AllInChance`, 12 %) a bot throws the whole offensive army of
+  its strongest village at a target on the strength of its points rather than a count of its garrison, and loses it if
+  it guessed wrong. People attack without scouting when the target looks weak; a bot that never takes that risk plays
+  nothing like one. It is deliberately rare, and `AllInMin` (2,000 units) keeps it to armies whose loss actually hurts,
+  so a "gamble" is never a handful of axes.
 - **The defender is told whether the attacker counted his troops.** A defender cannot look at the attacker, so the
   report states it: the attacker's survivors walked the field and described the garrison, or every attacker died and
   nobody rode away to describe it. It goes to the village's owner and to human supporters, whose troops were part of
@@ -152,7 +205,11 @@ The world is populated by bots that play like humans (`server/internal/game/bot_
   aggressor, point builder, opportunist) weights goals and village roles. World difficulty is the minimum share of
   strong bots.
 - **Economy and farming.** Building by village role, recruitment with a Farmstead reserve, raids on barbarians sized to
-  the loot remembered (scouting, wall; dried-up farms drop off the list and come back after a few days).
+  the loot remembered (scouting, wall; dried-up farms drop off the list and come back after a few days). A role's troop
+  plan is what a village recruits *towards*, not a ceiling it stops at: once the plan is met it keeps training in the
+  plan's proportions for as long as there is farm room and money. Without that a village whose plan is small — the
+  `mixed` one is deliberately so, and a bot with a single village is always `mixed` — sits on a full treasury and an
+  empty Farmstead while it is worth nothing in a fight.
 - **Tiers on normal worlds** (`EconomyPlays`). Strong bots (skill ≥ 0.7)
   open with the mines, keep iron 3 levels behind wood and clay and build only the economy until the mines reach 18;
   they grow the Farmstead when less than a quarter of it is free and the storage while it holds less than 12 hours

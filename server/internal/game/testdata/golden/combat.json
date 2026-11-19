@@ -60,18 +60,20 @@
     "result": {
       "kind": "scout",
       "outcome": "defenderWon",
-      "attackPower": 131,
+      "attackPower": 102.63046810112428,
       "defensePower": 274,
-      "luck": 0,
+      "luck": -0.21656131220515817,
       "morale": 1,
       "attackerLosses": {
         "scout": 131
       },
       "attackerSurvivors": {},
-      "defenderLosses": {},
+      "defenderLosses": {
+        "scout": 31
+      },
       "defenderSurvivors": {
         "archer": 246,
-        "scout": 137,
+        "scout": 106,
         "lightCav": 31,
         "catapult": 101,
         "noble": 56
@@ -1042,17 +1044,19 @@
     "result": {
       "kind": "scout",
       "outcome": "defenderWon",
-      "attackPower": 90,
+      "attackPower": 110.41691130842082,
       "defensePower": 382,
-      "luck": 0,
+      "luck": 0.2268545700935647,
       "morale": 1,
       "attackerLosses": {
         "scout": 90
       },
       "attackerSurvivors": {},
-      "defenderLosses": {},
+      "defenderLosses": {
+        "scout": 30
+      },
       "defenderSurvivors": {
-        "scout": 191,
+        "scout": 161,
         "lightCav": 151,
         "catapult": 132
       },
@@ -1129,7 +1133,7 @@
       "kind": "battle",
       "outcome": "attackerWon",
       "attackPower": 36359.969548123656,
-      "defensePower": 30340.32248652283,
+      "defensePower": 30340.322486522826,
       "luck": -0.03024790796916932,
       "morale": 0.841051755240187,
       "attackerLosses": {
@@ -2001,19 +2005,21 @@
     "result": {
       "kind": "scout",
       "outcome": "defenderWon",
-      "attackPower": 78,
+      "attackPower": 89.88449817546643,
       "defensePower": 452,
-      "luck": 0,
+      "luck": 0.15236536122392863,
       "morale": 1,
       "attackerLosses": {
         "scout": 78
       },
       "attackerSurvivors": {},
-      "defenderLosses": {},
+      "defenderLosses": {
+        "scout": 20
+      },
       "defenderSurvivors": {
         "sword": 138,
         "archer": 56,
-        "scout": 226,
+        "scout": 206,
         "catapult": 213,
         "paladin": 103,
         "noble": 175
@@ -2294,7 +2300,7 @@
       "kind": "battle",
       "outcome": "attackerWon",
       "attackPower": 57285.769333232274,
-      "defensePower": 30613.4789341142,
+      "defensePower": 30613.478934114202,
       "luck": -0.002185996971093118,
       "morale": 0.5603833108441905,
       "attackerLosses": {
@@ -2472,7 +2478,7 @@
       "kind": "battle",
       "outcome": "defenderWon",
       "attackPower": 21854.251753374556,
-      "defensePower": 31401.689263726978,
+      "defensePower": 31401.68926372697,
       "luck": 0.13654042792040855,
       "morale": 1,
       "attackerLosses": {
@@ -2951,19 +2957,20 @@
     "result": {
       "kind": "scout",
       "outcome": "attackerWon",
-      "attackPower": 413,
+      "attackPower": 316.093265346135,
       "defensePower": 150,
-      "luck": 0,
+      "luck": -0.2346410040045157,
       "morale": 1,
       "attackerLosses": {
-        "scout": 90
+        "scout": 135
       },
       "attackerSurvivors": {
-        "scout": 323
+        "scout": 278
       },
-      "defenderLosses": {},
+      "defenderLosses": {
+        "scout": 75
+      },
       "defenderSurvivors": {
-        "scout": 75,
         "lightCav": 282,
         "paladin": 158,
         "noble": 242
@@ -3716,7 +3723,7 @@
       "kind": "battle",
       "outcome": "defenderWon",
       "attackPower": 36809.277770492685,
-      "defensePower": 51719.412770063056,
+      "defensePower": 51719.41277006306,
       "luck": 0.09082495933398604,
       "morale": 0.3100691715022549,
       "attackerLosses": {
@@ -3821,7 +3828,7 @@
       "kind": "battle",
       "outcome": "attackerWon",
       "attackPower": 182818.6215448096,
-      "defensePower": 131352.9174388629,
+      "defensePower": 131352.91743886293,
       "luck": -0.0006214071763679385,
       "morale": 0.7520062854280695,
       "attackerLosses": {
@@ -3931,18 +3938,20 @@
     "result": {
       "kind": "scout",
       "outcome": "defenderWon",
-      "attackPower": 49,
+      "attackPower": 54.873409580788575,
       "defensePower": 72,
-      "luck": 0,
+      "luck": 0.11986550164874643,
       "morale": 1,
       "attackerLosses": {
         "scout": 49
       },
       "attackerSurvivors": {},
-      "defenderLosses": {},
+      "defenderLosses": {
+        "scout": 24
+      },
       "defenderSurvivors": {
         "axe": 6,
-        "scout": 36,
+        "scout": 12,
         "mountedArcher": 129,
         "catapult": 160
       },
@@ -4834,18 +4843,20 @@
     "result": {
       "kind": "scout",
       "outcome": "defenderWon",
-      "attackPower": 141,
+      "attackPower": 135.58681327127852,
       "defensePower": 584,
-      "luck": 0,
+      "luck": -0.038391395239159465,
       "morale": 1,
       "attackerLosses": {
         "scout": 141
       },
       "attackerSurvivors": {},
-      "defenderLosses": {},
+      "defenderLosses": {
+        "scout": 33
+      },
       "defenderSurvivors": {
         "archer": 12,
-        "scout": 292,
+        "scout": 259,
         "mountedArcher": 222,
         "heavyCav": 296,
         "noble": 47
@@ -5213,7 +5224,7 @@
       "kind": "battle",
       "outcome": "defenderWon",
       "attackPower": 111749.18355053573,
-      "defensePower": 127144.48406351986,
+      "defensePower": 127144.48406351989,
       "luck": -0.1986213905038312,
       "morale": 0.9399809717433527,
       "attackerLosses": {

@@ -93,7 +93,9 @@ func TestBotSkipsUnscoutedOwnedTarget(t *testing.T) {
 	grey.Points = 5000
 	grey.Units[game.USpear] = 5000
 	game.QuitPlayer(w, gone)
-	home.Units[game.UScout] = 20
+	// A party, not a handful: a village under minScoutParty sends no scouts at all, so a test handing it 20 would be
+	// asserting on a bot that is not allowed to look and then blaming it for not looking.
+	home.Units[game.UScout] = game.ScoutParty
 	game.PlanExpansion(w, bot)
 	if slices.ContainsFunc(w.ScheduledSendsOf(bot), func(s *game.ScheduledSend) bool { return s.Units[game.UNoble] > 0 }) {
 		t.Fatal("a hetman train went out at an unscouted village")

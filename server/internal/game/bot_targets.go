@@ -44,6 +44,11 @@ func intelHopeless(w World, k *KnownVillage) bool {
 }
 
 // OwnOffence is the attack strength at home in the bot's strongest village.
+//
+// "Strongest" is measured over every unit, so it answers "how hard can this bot hit with everything it has", which is
+// what a noble train's escort is judged on. It is NOT the army a clear marches with: a defence village is mostly spears
+// and heavy cavalry, which add a lot of attack here and are never sent. Judging a clear on this number compares the
+// target's garrison with a wall that will not move.
 func OwnOffence(w World, botID PlayerID) float64 {
 	best := 0.0
 	for _, v := range PlayerVillages(w, botID) {
@@ -54,6 +59,32 @@ func OwnOffence(w World, botID PlayerID) float64 {
 		best = math.Max(best, a)
 	}
 	return best
+}
+
+// offensiveVillage is the village a clear marches from and is judged by: the one whose offensive line hits hardest. The
+// two have to be the same village, or the bot offers a clear its army cannot fight and hides the ones it could win.
+func offensiveVillage(w World, botID PlayerID) (*Village, UnitCounts) {
+	var from *Village
+	var army UnitCounts
+	best := 0.0
+	for _, v := range villagesByDistance(w, botID, 0, 0) {
+		units := clearArmy(v)
+		if a := unitsAttack(units); a > best || (a == best && units.Total() > army.Total()) {
+			from, army, best = v, units, a
+		}
+	}
+	return from, army
+}
+
+// Clearable: the bot has counted the target's garrison and its own offensive line beats it comfortably — the same
+// question ChoosePurpose asks before offering a clear, and the same army LaunchClear will march.
+func Clearable(w World, botID PlayerID, k *KnownVillage) bool {
+	def, known := KnownDefence(k)
+	if !known {
+		return false
+	}
+	_, army := offensiveVillage(w, botID)
+	return def < 0.8*unitsAttack(army)
 }
 
 func nearestOwn(w World, botID PlayerID, x, y int) float64 {

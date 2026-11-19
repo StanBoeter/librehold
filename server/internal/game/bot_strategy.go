@@ -52,23 +52,29 @@ func UpdateMood(w World, botID PlayerID) {
 
 // ScoutParty is the scouts a scouting send starts from when the bot knows nothing about the target. A scouting mission
 // gets through only when it beats ScoutDefenseFactor per defending scout, so this is the baseline that clears an
-// ordinary home guard.
-const ScoutParty = 900
+// ordinary home guard: at 700 it rides through a village keeping 350.
+const ScoutParty = 700
 
-// scoutBands are the sizes a bot escalates through: what it sends is tried, and a party that comes home teaches it what
-// it was up against. Without this a bot's party and a village's guard are fixed constants, which makes "who can see
-// whom" a lookup table decided once by the playbook instead of something a player can influence.
-var scoutBands = [...]int{300, 600, 900, 1400, 2000, 3000}
+// scoutBands are the sizes a bot escalates through. They straddle the 1.6×–2.7× band where luck decides, so escalating
+// a caught party walks it towards a fight that is genuinely open rather than one that is decided on paper.
+var scoutBands = [...]int{600, 650, 850, 1100, 1500, 2000, 3000}
 
 // scoutPartyFor is the scouts to commit from a village against a particular target.
+//
+// With no history it sends what it has, up to ScoutParty. From then on it follows the last attempt: a party that came
+// home keeps its size, one that was caught grows a band. It deliberately does NOT size itself to the garrison — a caught
+// party learns nothing about what beat it, so whether its own scouts came home is the only feedback a bot has.
+//
+// A village under minScoutParty sends its whole line rather than nothing. It used to send nothing, on the argument that
+// a party under the defence line is caught by any ordinary home guard and teaches nothing. That reasoning is sound and
+// the rule built on it was still wrong: most roles plan fewer than 600 scouts, so most villages could never scout at
+// all, at any age, in any world — measured over 30 days with 50 bots, not one scouting mission was sent while the bots
+// held 29,000 scouts between them. A small party is worse than a full one; never looking is worse than both. The floor
+// now only decides when a party is *comfortable*, not whether one goes.
 func scoutPartyFor(have int, k *KnownVillage) int {
 	if have <= 0 {
 		return 0
 	}
-	// Follow the last attempt: a party that was caught grows a band, one that got through keeps its size. With no
-	// history there is nothing to learn from yet, so open with the baseline party. There is deliberately no "size it to
-	// the garrison" branch: a caught party learns nothing about what beat it, so the only feedback a bot has is whether
-	// its own scouts came home.
 	want := ScoutParty
 	if k != nil && k.LastScoutParty > 0 {
 		want = k.LastScoutParty
@@ -76,16 +82,23 @@ func scoutPartyFor(have int, k *KnownVillage) int {
 			want = nextScoutBand(k.LastScoutParty)
 		}
 	}
+	if have < minScoutParty {
+		return have
+	}
 	return min(have, max(want, minScoutParty))
 }
 
-// minScoutParty floors a party so a bot does not dribble scouts away a handful at a time.
-const minScoutParty = 300
-
-// scoutMargin is headroom over the bare minimum, so a party does not land exactly on the threshold.
-const scoutMargin = 1.1
+// minScoutParty is the size at which a party stops being a gamble and starts being able to clear an ordinary home
+// guard, so a village holding this much opens at ScoutParty and escalates from there. Below it a village sends its whole
+// line and expects to be caught: that is a real cost, and it is still better than a village that never looks.
+const minScoutParty = 600
 
 // nextScoutBand is the band above have, or the top band once it runs out.
+//
+// The bands straddle the ScoutDefenseFactor line on purpose. Luck moves a party's effective strength by LuckRange either
+// way, so a fight is only undecided while the party sits between 2/(1+LuckRange) and 2/(1-LuckRange) times the guard —
+// 1.6× to 2.7×. Bands placed well above that always win and well below always lose, which makes scouting a lookup table
+// again. These straddle 2×, so escalating through them crosses the range where the outcome is genuinely open.
 func nextScoutBand(have int) int {
 	for _, b := range scoutBands {
 		if b > have {

@@ -136,19 +136,71 @@ func TestCombatDetails(t *testing.T) {
 		}
 	})
 
-	t.Run("scouting: succeeds when scouts > 2× defenders, otherwise they die; the defender takes no losses", func(t *testing.T) {
+	t.Run("scouting: succeeds when scouts > 2× defenders, otherwise they die", func(t *testing.T) {
 		ok := ResolveBattle(battleInput(battleOpts{attacker: UnitCounts{UScout: 10}, defender: UnitCounts{UScout: 3, USpear: 500}}))
-		if ok.Kind != "scout" || ok.Outcome != "attackerWon" || ok.DefenderLosses.Total() != 0 ||
+		if ok.Kind != "scout" || ok.Outcome != "attackerWon" ||
 			float64(ok.AttackerLosses[UScout]) != math.Round(10*math.Pow(0.6, 1.5)) {
 			t.Fatalf("%+v", ok)
 		}
 		fail := ResolveBattle(battleInput(battleOpts{attacker: UnitCounts{UScout: 5}, defender: UnitCounts{UScout: 3}}))
-		if fail.Outcome != "defenderWon" || fail.AttackerLosses[UScout] != 5 || fail.DefenderLosses.Total() != 0 {
+		if fail.Outcome != "defenderWon" || fail.AttackerLosses[UScout] != 5 {
 			t.Fatalf("%+v", fail)
 		}
 		none := ResolveBattle(battleInput(battleOpts{attacker: UnitCounts{UScout: 1}}))
 		if none.Outcome != "attackerWon" || none.AttackerLosses.Total() != 0 {
 			t.Fatalf("%+v", none)
+		}
+	})
+
+	t.Run("scouting: the defending scouts are not free", func(t *testing.T) {
+		// A party that runs into a garrison does not come home, and the scouts that stopped it do not walk away
+		// untouched either: it was a fight, not a wall.
+		fail := ResolveBattle(battleInput(battleOpts{attacker: UnitCounts{UScout: 200}, defender: UnitCounts{UScout: 400}}))
+		if fail.Outcome != "defenderWon" {
+			t.Fatalf("the party should have been caught: %+v", fail)
+		}
+		if fail.DefenderLosses.Total() == 0 {
+			t.Fatal("400 scouts met 200 and lost nobody")
+		}
+		if fail.DefenderLosses.Total() >= 400 {
+			t.Fatalf("the defending scouts were wiped out (%d of 400) by a party half their size", fail.DefenderLosses.Total())
+		}
+		// A hopeless probe costs the defender almost nothing; a close one costs a lot.
+		hopeless := ResolveBattle(battleInput(battleOpts{attacker: UnitCounts{UScout: 1}, defender: UnitCounts{UScout: 400}}))
+		close := ResolveBattle(battleInput(battleOpts{attacker: UnitCounts{UScout: 399}, defender: UnitCounts{UScout: 400}}))
+		if hopeless.DefenderLosses.Total() >= fail.DefenderLosses.Total() {
+			t.Fatalf("a lone scout hurt the defence more than a real party: %d vs %d",
+				hopeless.DefenderLosses.Total(), fail.DefenderLosses.Total())
+		}
+		if close.DefenderLosses.Total() <= fail.DefenderLosses.Total() {
+			t.Fatalf("a close-run fight hurt less than a hopeless one: %d vs %d",
+				close.DefenderLosses.Total(), fail.DefenderLosses.Total())
+		}
+		// And a party that got through still bloodies the defenders it beat.
+		ok := ResolveBattle(battleInput(battleOpts{attacker: UnitCounts{UScout: 400}, defender: UnitCounts{UScout: 100}}))
+		if ok.Outcome != "attackerWon" || ok.DefenderLosses.Total() == 0 {
+			t.Fatalf("the defenders that were outfought lost nobody: %+v", ok)
+		}
+	})
+
+	t.Run("scouting: luck moves the threshold so neither side is certain", func(t *testing.T) {
+		// Exactly on the 2x line is the only place luck decides, but that band is wide enough that a party sized to the
+		// textbook number wins sometimes and loses sometimes.
+		defender := UnitCounts{UScout: 100}
+		attacker := UnitCounts{UScout: 200}
+		wins, losses := 0, 0
+		for i := 0; i < 40; i++ {
+			// Sweep luck across its range the way real battles draw it.
+			luck := -CombatBalance.LuckRange + 2*CombatBalance.LuckRange*float64(i)/39
+			r := ResolveBattle(battleInput(battleOpts{attacker: attacker, defender: defender, luck: luck}))
+			if r.Outcome == "attackerWon" {
+				wins++
+			} else {
+				losses++
+			}
+		}
+		if wins == 0 || losses == 0 {
+			t.Fatalf("scouting is still a lookup table on the 2x line: %d wins, %d losses over the luck range", wins, losses)
 		}
 	})
 

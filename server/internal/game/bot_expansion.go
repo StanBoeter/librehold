@@ -34,9 +34,10 @@ func readyForNobles(w World, botID PlayerID, v *Village) bool {
 		return rng() < BotConfig.WeakExpandDailyChance
 	}
 	var have, target UnitCounts
+	targets := troopTargets(w, v, ChooseRole(w, botID, v))
 	for _, u := range UnitIDs {
 		have[u] = UnitCountIncludingQueued(v, u)
-		target[u] = TroopTargets[ChooseRole(w, botID, v)][u]
+		target[u] = targets[u]
 	}
 	return unitsAttack(have) >= 0.5*unitsAttack(target)
 }

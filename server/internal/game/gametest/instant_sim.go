@@ -1,6 +1,8 @@
 package gametest
 
-import "librehold/internal/game"
+import (
+	"librehold/internal/game"
+)
 
 // InstantSimResult sums up one simulated instant world.
 type InstantSimResult struct {
@@ -64,11 +66,26 @@ func RunInstantSim(seed uint32, humans int) (InstantSimResult, error) {
 			}
 			seen[c.ID] = true
 			r.BotActions++
-			if c.Type != "attack" || now > 10*game.MsPerMinute {
+			// What the grace period promises a guest is that nobody can send at them while it runs, so measure that
+			// directly against the window rather than against the scan tick: a send that departed at the instant
+			// protection ran out is allowed, and one that departed a tick before it is not.
+			if c.Type != "attack" {
+				continue
+			}
+			// Reconnaissance is not an attack on a newcomer: a scouting party takes nothing.
+			if game.IsScoutMission(c.Units) {
 				continue
 			}
 			if t := w.Village(c.TargetID); t != nil && t.OwnerID != "" && game.IsHumanID(game.PlayerID(t.OwnerID)) {
-				r.BotAttacksOnHumansEarly++
+				// A village that changed hands after the attack left was not a newcomer's village when it was sent at:
+				// the bot aimed at a barbarian and a guest conquered it in the meantime, which is no fault of the bot's
+				// and nothing the grace period failed to prevent.
+				if t.ConqueredAt != nil && *t.ConqueredAt >= c.DepartedAt {
+					continue
+				}
+				if p := w.Player(game.PlayerID(t.OwnerID)); p != nil && c.DepartedAt < p.ProtectedUntil {
+					r.BotAttacksOnHumansEarly++
+				}
 			}
 		}
 		if r.FirstConquestMs < 0 {

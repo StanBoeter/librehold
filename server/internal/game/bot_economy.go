@@ -34,10 +34,21 @@ func makesMistake(w World, botID PlayerID, key, salt string) bool {
 }
 
 // ChooseRole: the first village is mixed while the bot has one; later ones off or def by style and front line.
+//
+// A village that changes role keeps the garrison it trained for the old one, which is wrong: it would go on holding a
+// mixed field army while training the new plan on top of it, and the farm is a hard cap, so it could never build the
+// army the new role describes. convertGarrison clears that garrison the first time the role is assigned.
+//
+// Locking the role instead was the earlier attempt and it was much worse: a bot's first village is the only one that has
+// had time to mature, so keeping it mixed forever left the world with almost no trained armies at all — measured, the
+// offence role fell to twelve villages averaging 17 light cavalry each, against 391 before.
 func ChooseRole(w World, botID PlayerID, v *Village) VillageRole {
 	p := w.Player(botID)
 	brain := brainOf(w, botID)
-	if len(p.VillageIDs) < 2 {
+	if brain.Roles == nil {
+		brain.Roles = map[string]VillageRole{}
+	}
+	if p == nil || len(p.VillageIDs) < 2 {
 		return RoleMixed
 	}
 	if known, ok := brain.Roles[v.ID]; ok {
@@ -58,7 +69,28 @@ func ChooseRole(w World, botID PlayerID, v *Village) VillageRole {
 		}
 	}
 	brain.Roles[v.ID] = role
+	// The village has just been given a role of its own, and its garrison is still whatever it built while it had none.
+	convertGarrison(w, botID, v)
 	return role
+}
+
+// convertGarrison clears a village's units the moment it changes role, so the new role starts with room to build the
+// army it describes instead of carrying the old one for ever. This is the first point at which the plan is known, and it
+// runs once per village because ChooseRole caches its answer.
+func convertGarrison(w World, botID PlayerID, v *Village) {
+	if v.ConqueredAt != nil {
+		return // a taken village's garrison is sold by sellOffPlanTroops, under its own gate
+	}
+	targets := troopTargets(w, v, brainOf(w, botID).Roles[v.ID])
+	for _, u := range UnitIDs {
+		if _, wanted := targets[u]; wanted || v.Units[u] == 0 {
+			continue
+		}
+		act(w, botID, "convert-garrison", villageArgs(v.ID, "unit", u), func() error {
+			v.Units[u] = 0
+			return nil
+		})
+	}
 }
 
 // openingFor: the opening, corrected for the "barracks on day one" mistake (weak players rush the military).
@@ -209,14 +241,33 @@ type recruitable struct {
 	unit    UnitID
 	deficit int
 	fill    float64
+	// surplus marks a line the village has already filled, which is being grown past the plan rather than up to it.
+	surplus bool
 }
 
-// recruitableUnits are the role's units the village can already train, most lacking first. With beyondTargets
-// the targets are soft: spending a surplus keeps training in the same proportions.
+// troopTargets is the army this village builds towards. A role fields several variants and a village rolls one from its
+// own id, so the militia of a role is not all one force: an axe horde and a cavalry wing defend differently, and a
+// raider who scouted one knows nothing much about the next. The roll is seeded from the village id rather than drawn
+// as it goes, so a replay of the same world trains the same armies.
+func troopTargets(w World, v *Village, role VillageRole) map[UnitID]int {
+	variants := TroopVariants[role]
+	if len(variants) == 0 {
+		return TroopTargets[role]
+	}
+	roll := Mulberry32(HiddenSeed(w, "troopVariant", v.ID))
+	return variants[int(roll()*float64(len(variants)))%len(variants)]
+}
+
+// recruitableUnits are the role's units the village can already train, most lacking first. With beyondTargets the
+// targets are soft: a village that has met its plan keeps spending its surplus, and the deficit reported for each unit
+// is what that unit's share of the plan still has room for rather than "as many as you like". Training units in that
+// order, one batch each, is what keeps the army in proportion — a plain MaxInt32 deficit would let the first line in
+// the list eat the whole budget and turn a rich village into a monolith of one unit.
 func recruitableUnits(w World, v *Village, role VillageRole, beyondTargets bool) []recruitable {
 	var out []recruitable
+	targets := troopTargets(w, v, role)
 	for _, u := range UnitIDs {
-		target, ok := TroopTargets[role][u]
+		target, ok := targets[u]
 		if !ok || EffectiveResearchLevel(v, u) < 1 {
 			continue
 		}
@@ -232,9 +283,12 @@ func recruitableUnits(w World, v *Village, role VillageRole, beyondTargets bool)
 		have := ownedUnits(w, v, u)
 		fill := float64(have) / float64(target)
 		if have < target {
-			out = append(out, recruitable{u, target - have, fill})
+			out = append(out, recruitable{unit: u, deficit: target - have, fill: fill})
 		} else if beyondTargets {
-			out = append(out, recruitable{u, math.MaxInt32, fill})
+			// One more plan's worth of this line, taken as a share of the farm room in PlanRecruitment. The share is
+			// what keeps the army in proportion: a deficit of "as many as you like" lets the first line in the list eat
+			// the whole farm, and a rich village then looks like one unit instead of the army its role describes.
+			out = append(out, recruitable{unit: u, deficit: target, fill: fill, surplus: true})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].fill < out[j].fill })
@@ -273,10 +327,14 @@ func CanRecruitMore(w World, botID PlayerID, v *Village) bool {
 	return false
 }
 
-func researchWanted(role VillageRole) []UnitID {
+// researchWanted is what the village researches, in order: reconnaissance first, then whatever its own variant fields.
+// It reads the village rather than the role because researching a variant's mounts is how a village that rolled cavalry
+// stops being an axe horde with an empty stable.
+func researchWanted(w World, v *Village, role VillageRole) []UnitID {
 	out := []UnitID{UScout, ULightCav}
+	targets := troopTargets(w, v, role)
 	for _, u := range UnitIDs {
-		if _, ok := TroopTargets[role][u]; ok {
+		if _, ok := targets[u]; ok {
 			out = append(out, u)
 		}
 	}
@@ -294,7 +352,7 @@ func CanSpendMore(w World, botID PlayerID, v *Village) bool {
 	if len(v.ResearchQueue) > 0 {
 		return false
 	}
-	for _, u := range researchWanted(ChooseRole(w, botID, v)) {
+	for _, u := range researchWanted(w, v, ChooseRole(w, botID, v)) {
 		if EffectiveResearchLevel(v, u) < 1 && len(CheckResearch(w, v, u).Blockers) == 0 {
 			return true
 		}
@@ -317,9 +375,44 @@ func IdlesNow(w World, botID PlayerID) bool {
 	return makesMistake(w, botID, "idleResources", strconv.FormatInt(w.Now(), 10))
 }
 
-// PlanRecruitment trains towards the role's targets from the surplus above the next building's cost.
+// sellOffPlanTroops frees the farm of a garrison the village's plan does not contain. A conquered village arrives with
+// the loser's garrison, which is not the army the new role builds; kept, it fills the farm and the village can never
+// train the role it just joined.
+//
+// Only a *conquered* village is treated this way. A bot's own first village keeps the mixed army it trained, because
+// ChooseRole leaves it mixed for exactly that reason — and because selling a founding village's army is buying room with
+// the only defence the bot has. Measured over 30 days, an earlier version of this sold in every village that ran out of
+// room and took the world from 89 bot villages to 55: the bots could not hold what they had.
+func sellOffPlanTroops(w World, botID PlayerID, v *Village) bool {
+	if v.ConqueredAt == nil {
+		return false // a village that has always been this bot's keeps the army it built
+	}
+	role := ChooseRole(w, botID, v)
+	targets := troopTargets(w, v, role)
+	if popRoom(w, v) > 0 {
+		return true // there is room; the plan will take what it wants and nothing has to be sold yet
+	}
+	sold := false
+	for _, u := range UnitIDs {
+		if _, wanted := targets[u]; wanted || v.Units[u] == 0 {
+			continue
+		}
+		n := v.Units[u]
+		sold = act(w, botID, "sell-troops", villageArgs(v.ID, "unit", u, "count", n), func() error {
+			v.Units[u] = 0
+			return nil
+		}) || sold
+	}
+	return sold
+}
+
+// PlanRecruitment trains towards the role's targets from the surplus above the next building's cost. The targets are a
+// cap on what the plan asks for, not a place to stop: a village that has met its plan still spends what it can afford,
+// in the plan's own proportions, until the farm is full. Without that a village whose plan is small — the mixed one is
+// deliberately so — sits on a full treasury and thousands of free farm room while it is worth nothing in a fight.
 func PlanRecruitment(w World, botID PlayerID, v *Village) {
 	role := ChooseRole(w, botID, v)
+	sellOffPlanTroops(w, botID, v)
 	var reserve Resources
 	if next, ok := NextBuilding(w, botID, v, Mulberry32(HiddenSeed(w, "reserve", botID, v.ID, w.Now()))); ok {
 		reserve = BuildCost(next, EffectiveBuildingLevels(v)[next]+1)
@@ -331,8 +424,20 @@ func PlanRecruitment(w World, botID PlayerID, v *Village) {
 		half := Resources{Wood: v.Resources.Wood / 2, Clay: v.Resources.Clay / 2, Iron: v.Resources.Iron / 2}
 		reserve = maxResources(savings, half)
 	}
-	for _, r := range recruitableUnits(w, v, role, false) {
-		botRecruit(w, botID, v, r.unit, min(r.deficit, affordableUnits(w, v, r.unit, reserve)))
+	// A village that has met its plan keeps spending, but the surplus is shared out across the plan's lines: each may grow
+	// by up to its share of the free farm. Divided among the lines that are merely growing, the first one to pass its
+	// target would take the whole farm on its own, which is the monolith this is here to prevent.
+	units := recruitableUnits(w, v, role, true)
+	perLine := math.MaxInt32
+	if len(units) > 0 {
+		perLine = int(popRoom(w, v)) / len(units)
+	}
+	for _, r := range units {
+		want := min(r.deficit, affordableUnits(w, v, r.unit, reserve))
+		if r.surplus && perLine < want {
+			want = perLine
+		}
+		botRecruit(w, botID, v, r.unit, want)
 	}
 }
 
@@ -342,7 +447,7 @@ func PlanResearch(w World, botID PlayerID, v *Village) {
 		return
 	}
 	savings := nobleSavings(w, v)
-	for _, u := range researchWanted(ChooseRole(w, botID, v)) {
+	for _, u := range researchWanted(w, v, ChooseRole(w, botID, v)) {
 		check := CheckResearch(w, v, u)
 		if EffectiveResearchLevel(v, u) >= 1 || len(check.Blockers) > 0 {
 			continue

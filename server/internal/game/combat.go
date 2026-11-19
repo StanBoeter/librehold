@@ -196,12 +196,26 @@ func defensePowerOf(side BattleSide) (general, cavalry, archer float64) {
 	return
 }
 
+// resolveScout: scouts against scouts. Luck applies here as it does to every other fight, so landing exactly on the
+// ScoutDefenseFactor line is a coin toss rather than a foregone conclusion — otherwise a party and a garrison are two
+// numbers and the outcome is a lookup table decided when the numbers were written.
+//
+// Only scouts fight, on both sides. Whatever else is standing in the village is untouched: a scouting mission is a
+// clash of outriders, not a battle.
 func resolveScout(in BattleInput) BattleResult {
-	att := float64(in.Attacker.Units[UScout])
+	luckFactor := 1 + in.Luck
+	att := float64(in.Attacker.Units[UScout]) * luckFactor
 	def := float64(in.Defender.Units[UScout]) * CombatBalance.ScoutDefenseFactor
 	res := BattleResult{
-		Kind: "scout", AttackPower: att, DefensePower: def, Morale: in.Morale,
+		Kind: "scout", AttackPower: att, DefensePower: def, Luck: in.Luck, Morale: in.Morale,
 		DefenderSurvivors: in.Defender.Units, WallBefore: in.Defender.Wall, WallAfter: in.Defender.Wall,
+	}
+	fighters := UnitCounts{UScout: in.Defender.Units[UScout]}
+	scoutLosses := func(ratio float64) UnitCounts {
+		lost, survivors := DistributeLosses(fighters, ratio)
+		res.DefenderSurvivors = in.Defender.Units
+		res.DefenderSurvivors[UScout] = survivors[UScout]
+		return lost
 	}
 	if att > def {
 		ratio := 0.0
@@ -210,10 +224,19 @@ func resolveScout(in BattleInput) BattleResult {
 		}
 		res.Outcome = "attackerWon"
 		res.AttackerLosses, res.AttackerSurvivors = DistributeLosses(in.Attacker.Units, ratio)
+		// The party beat the defending scouts, so it killed some of them on the way through: the better the defence
+		// held, the fewer it lost.
+		res.DefenderLosses = scoutLosses(math.Pow(att/def, CombatBalance.LossExponent))
 		return res
 	}
 	res.Outcome = "defenderWon"
 	res.AttackerLosses = in.Attacker.Units
+	// A caught party still fights the scouts that catch it: the closer the numbers, the more the defence bleeds.
+	ratio := 1.0
+	if def > 0 {
+		ratio = math.Pow(att/def, CombatBalance.LossExponent)
+	}
+	res.DefenderLosses = scoutLosses(ratio)
 	return res
 }
 

@@ -2,34 +2,34 @@
   {
     "seed": 1,
     "medianPoints": {
-      "10": 3616,
-      "20": 4583,
-      "30": 5532
+      "10": 3004,
+      "20": 4747,
+      "30": 5530
     },
     "medianVillages": 1,
-    "farmRunsPerDay": 36911.433333333334,
-    "quitShare": 0.1
+    "farmRunsPerDay": 31156.433333333334,
+    "quitShare": 0.16666666666666666
   },
   {
     "seed": 2,
     "medianPoints": {
-      "10": 3877,
-      "20": 4779,
-      "30": 5661
+      "10": 3359,
+      "20": 5581,
+      "30": 5746
     },
-    "medianVillages": 1,
-    "farmRunsPerDay": 39379.23333333333,
-    "quitShare": 0.23333333333333334
+    "medianVillages": 2,
+    "farmRunsPerDay": 34949.7,
+    "quitShare": 0.13333333333333333
   },
   {
     "seed": 3,
     "medianPoints": {
-      "10": 2080,
-      "20": 4401,
-      "30": 4795
+      "10": 1889,
+      "20": 4631,
+      "30": 4680
     },
     "medianVillages": 1,
-    "farmRunsPerDay": 31211.333333333332,
-    "quitShare": 0.2
+    "farmRunsPerDay": 27746.233333333334,
+    "quitShare": 0.06666666666666667
   }
 ]

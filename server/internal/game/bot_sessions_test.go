@@ -618,9 +618,11 @@ func TestBotFarmingSessions(t *testing.T) {
 		w := farmingWorld(t, 0.95)
 		home := game.PlayerVillages(w, "bot_0")[0]
 		near := game.GeneratedVillagesNear(w.Seed(), w.Config(), home.X, home.Y, 6)
+		// A wall the bot cannot crack: a strong one rams walls up to 2, so a higher wall is the case where the raid must
+		// be skipped. (With a workshop in the mixed plan a bot does now carry rams, so a level-2 wall is a farm.)
 		walled := game.EnsureVillage(w, near[0].X, near[0].Y)
-		walled.Buildings[game.BWall] = 2
-		game.ObserveBattle(w, "bot_0", walled, game.BattleSeen{Units: &game.UnitCounts{}, Wall: ptr(2)})
+		walled.Buildings[game.BWall] = 3
+		game.ObserveBattle(w, "bot_0", walled, game.BattleSeen{Units: &game.UnitCounts{}, Wall: ptr(3)})
 		dry := game.EnsureVillage(w, near[1].X, near[1].Y)
 		for range 3 {
 			game.ObserveBattle(w, "bot_0", dry, game.BattleSeen{Units: &game.UnitCounts{}, Wall: ptr(0), HaulRatio: ptr(0.1)})

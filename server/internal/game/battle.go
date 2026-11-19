@@ -371,6 +371,9 @@ func ResolveAttackArrival(w World, c *Command, target *Village) error {
 			}
 		}
 		sendBattleReports(w, recipients, r, defenders)
+		// The defending scouts fought for it, so what they lost has to leave the village. A scouting mission never
+		// reaches the wall, loot or loyalty code below, so it is applied here.
+		applyDefenderLosses(target, result.DefenderLosses)
 		return nil
 	}
 
