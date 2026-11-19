@@ -664,3 +664,22 @@ describe("locked auto-farm", () => {
     ).toMatch(/Łupieżca/);
   });
 });
+
+describe("village sidebar cards", () => {
+  // The Units card lost its wooden frame in a merge: UnitsPanel was mounted bare, so its rows floated loose in the
+  // sidebar while Production and Current parameters kept their headers. Rendering UnitsPanel on its own (as the other
+  // tests do) cannot catch that — the frame lives in the view that mounts it, so assert on the view.
+  it("draws every sidebar card inside a titled panel", () => {
+    const { container } = render(<VillageView />);
+    const aside = container.querySelector("aside")!;
+    expect(aside).toBeTruthy();
+    const cards = [...aside.querySelectorAll(":scope > section.panel")];
+    const titles = cards.map(
+      (c) => c.querySelector(".panel-header")?.textContent ?? "",
+    );
+    expect(titles).toHaveLength(3);
+    expect(titles.join("|")).toMatch(/Produkcja/);
+    expect(titles.join("|")).toMatch(/Jednostki/);
+    expect(titles.join("|")).toMatch(/Bieżące parametry/);
+  });
+});

@@ -241,7 +241,9 @@ export function VillageView() {
       </div>
       <aside className="min-w-0 flex flex-col gap-3 lg:sticky lg:top-2">
         <ProductionPanel />
-        <UnitsPanel />
+        <SidePanel title={t("village.units")}>
+          <UnitsPanel />
+        </SidePanel>
         <ParamsPanel />
       </aside>
     </div>
