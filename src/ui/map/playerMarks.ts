@@ -19,6 +19,13 @@ export function markLookup(marks: readonly PlayerMark[]): MarkLookup {
   return (name) => (name ? byName.get(markKey(name)) : undefined);
 }
 
+/**
+ * Your own villages carry a corner dot too, so you can find them without reading roofs: yellow for every village of
+ * yours. They are not marks — the player cannot recolour or unmark them — but they share the corner with a mark, so
+ * they live with the mark colours. The village you are in needs no colour of its own: it already has a gold outline.
+ */
+export const OWN_VILLAGE_COLOR = "#ffd400";
+
 /** Colours a new mark starts from, in order: distinct enough that neighbouring marks stay apart on the map. */
 export const MARK_COLORS: readonly string[] = [
   "#e6194b",

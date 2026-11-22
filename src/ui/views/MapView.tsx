@@ -19,8 +19,7 @@ import { UNITS } from "../../data/units.data";
 import { travelTimeMs } from "../../engine/commands";
 import { distance, type TileInfo } from "../../engine/world";
 import { tileAt } from "../map/tiles";
-import { HUMAN_ID, RESOURCES } from "../../engine/types";
-import type { GameState } from "../../engine/types";
+import { HUMAN_ID, RESOURCES, type GameState } from "../../engine/types";
 import type { MapCache } from "../../net/mapCache";
 import {
   mapCache,
@@ -59,7 +58,11 @@ import { VillageQuickActions } from "../map/VillageQuickActions";
 import { villageInfo, type VillageInfo } from "../map/villageInfo";
 import { isHumanVillage, humanVillageIds } from "../../engine/players";
 import { NumberInput } from "../../shared/NumberInput";
-import { markLookup, type MarkLookup } from "../map/playerMarks";
+import {
+  markLookup,
+  OWN_VILLAGE_COLOR,
+  type MarkLookup,
+} from "../map/playerMarks";
 import { PlayerMarksPanel } from "../map/PlayerMarksPanel";
 
 /** Selector: a compact summary of materialised villages — it changes rarely, so the map doesn't re-render every tick. */
@@ -75,30 +78,46 @@ const selectVillageSummary = (s: GameStore): string => {
 };
 
 /**
- * The minimap's dots: the player's own villages, as before, plus the villages of the players they marked. Other
- * players' villages are not in the state, so the marked ones come from the loaded map chunks as well.
+ * The minimap's dots: the player's own villages and the barbarians from the state, as before, plus the villages of the
+ * players they marked. Other players' villages are not in the state, so the marked ones come from the loaded map
+ * chunks as well — and only those, because a chunk holds every barbarian on it and the state's own barbarians are the
+ * ones the minimap has always drawn.
  */
 function minimapDotsOf(
   g: GameState,
   marks: MarkLookup,
   cache: MapCache | null,
-): { x: number; y: number; player: boolean; color?: string }[] {
+): {
+  x: number;
+  y: number;
+  player: boolean;
+  color?: string;
+  own?: boolean;
+}[] {
   const out = new Map<
     string,
-    { x: number; y: number; player: boolean; color?: string }
+    { x: number; y: number; player: boolean; color?: string; own?: boolean }
   >();
   const add = (x: number, y: number, ownerId: string | null) => {
     const key = `${x},${y}`;
     if (ownerId === HUMAN_ID) {
-      out.set(key, { x, y, player: true });
+      // Your own villages take the same yellow as their corner dot on the map.
+      out.set(key, { x, y, player: true, own: true, color: OWN_VILLAGE_COLOR });
       return;
     }
-    if (ownerId === null) return;
-    const color = marks(g.players[ownerId]?.name);
-    if (color) out.set(key, { x, y, player: true, color });
+    const color =
+      ownerId === null ? undefined : marks(g.players[ownerId]?.name);
+    if (color) {
+      out.set(key, { x, y, player: true, color });
+      return;
+    }
+    // An unmarked village is a small brown dot, which is what the minimap draws for everyone but the player.
+    out.set(key, { x, y, player: false });
   };
   for (const v of Object.values(g.villages)) add(v.x, v.y, v.ownerId);
-  for (const t of cache?.loaded() ?? []) add(t.x, t.y, t.ownerId);
+  for (const t of cache?.loaded() ?? []) {
+    if (t.ownerId !== null && t.ownerId !== HUMAN_ID) add(t.x, t.y, t.ownerId);
+  }
   return [...out.values()];
 }
 

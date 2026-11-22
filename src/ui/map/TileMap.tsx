@@ -8,6 +8,7 @@ import {
 import { MAP } from "../../data/world.config";
 import type { TileInfo } from "../../engine/world";
 import { t as tr } from "../../i18n/i18n";
+import { HUMAN_ID } from "../../engine/types";
 import type { AnimationMode } from "../../state/uiStore";
 import { formatCoords } from "../format";
 import type { MapArmy } from "./armies";
@@ -22,7 +23,7 @@ import {
   type TileArtProps,
 } from "./MapArt";
 import { MINIMAP_PALETTE, minimapImage } from "./minimap";
-import type { MarkLookup } from "./playerMarks";
+import { OWN_VILLAGE_COLOR, type MarkLookup } from "./playerMarks";
 import { TerrainLayer } from "./TerrainLayer";
 import {
   FRAME_H,
@@ -75,7 +76,15 @@ export interface TileMapProps {
   activeId?: string;
   /** Other players the player picked out by name, and the colour each is drawn in. */
   marks?: MarkLookup;
-  minimapDots: { x: number; y: number; player: boolean; color?: string }[];
+  minimapDots: {
+    x: number;
+    y: number;
+    player: boolean;
+    /** A marked player's colour, or the yellow of the player's own village circle. */
+    color?: string;
+    /** The dot is one of the player's own villages rather than a marked player's. */
+    own?: boolean;
+  }[];
   armies: MapArmy[];
   clock: ArmyClock;
   animations: AnimationMode;
@@ -154,7 +163,14 @@ function Tile({
 }) {
   const t = useTile(x, y);
   const ownerColor = colors ? villageTint(t) : undefined;
-  const markColor = t.kind === "village" ? marks?.(t.ownerName) : undefined;
+  const mark = t.kind === "village" ? marks?.(t.ownerName) : undefined;
+  // Your own villages are found the same way as a marked player's: a corner dot, yellow for every village of yours.
+  // The village you are in needs no dot of its own — it already carries a gold outline. It outlives "Player colours"
+  // for the same reason a mark does.
+  const own =
+    t.kind === "village" && t.ownerId === HUMAN_ID
+      ? OWN_VILLAGE_COLOR
+      : undefined;
   const hidden =
     t.kind === "village" && t.ownerId === null && t.points > maxPoints;
   const village: TileArtProps["village"] =
@@ -166,7 +182,6 @@ function Tile({
           active: t.id === activeId,
           hidden,
           ownerColor,
-          markColor,
         }
       : undefined;
   const label = tr(`biome.${BIOME_KEY[tileBiome(seed, x, y)]}`);
@@ -182,7 +197,15 @@ function Tile({
       data-tile-village={t.kind === "village" ? t.id : undefined}
       onClick={() => onSelect(x, y, t.kind === "village")}
     >
-      <TileArt village={village} dot={dot} icons={icons} tw={tw} th={th} />
+      <TileArt
+        village={village}
+        dot={dot}
+        icons={icons}
+        mark={mark}
+        own={own}
+        tw={tw}
+        th={th}
+      />
     </div>
   );
 }
@@ -216,7 +239,6 @@ function Minimap({
     imageRendering: "pixelated",
   };
   const k = 200 / mapSize;
-  const players = dots.filter((d) => d.player);
   return (
     <svg
       width={200}
@@ -244,19 +266,29 @@ function Minimap({
             fill="#5c4528"
           />
         ))}
-      {players.map((d) => (
-        <rect
-          key={`p${d.x},${d.y}`}
-          data-minimap-dot={d.color ?? undefined}
-          x={d.x * k - (d.color ? 2.5 : 2)}
-          y={d.y * k - (d.color ? 2.5 : 2)}
-          width={d.color ? 5 : 4}
-          height={d.color ? 5 : 4}
-          fill={d.color ?? "#2f5fa8"}
-          stroke="#fff"
-          strokeWidth={d.color ? 1 : 0.5}
-        />
-      ))}
+      {dots
+        .filter((d) => d.player)
+        .map((d) => {
+          // Own villages and marked players are told apart by their attribute, so a test can ask for one or the other.
+          const tagged = d.own
+            ? { "data-minimap-own": d.color }
+            : d.color
+              ? { "data-minimap-dot": d.color }
+              : {};
+          return (
+            <rect
+              key={`p${d.x},${d.y}`}
+              {...tagged}
+              x={d.x * k - (d.color ? 2.5 : 2)}
+              y={d.y * k - (d.color ? 2.5 : 2)}
+              width={d.color ? 5 : 4}
+              height={d.color ? 5 : 4}
+              fill={d.color ?? "#2f5fa8"}
+              stroke="#fff"
+              strokeWidth={d.color ? 1 : 0.5}
+            />
+          );
+        })}
       <rect
         x={(center.x - cols / 2) * k}
         y={(center.y - rows / 2) * k}

@@ -5,7 +5,8 @@ import type { VillageSize } from "./MapArt";
 /**
  * A village on the classic skin's map: the pixel sprite of its point tier (`npm run assets:pixel-map`), drawn at the
  * terrain's art scale (96×64 art px per tile). Other players' roofs take the owner's colour: grey roofs of the `-tint`
- * sprite multiplied by that colour through the `-roof` mask. Banners mark the bonus and the active village.
+ * sprite multiplied by that colour through the `-roof` mask. A banner marks a bonus village; the active village is told
+ * apart by its gold outline.
  */
 const URLS = import.meta.glob<string>(
   "../../assets/pixel/map/{village-*,banner*}.png",
@@ -23,7 +24,6 @@ export const VILLAGE_SCALES: readonly number[] = [
   1.1, 1, 0.95, 0.95, 0.85, 0.85,
 ];
 const BONUS_COLOR = "#e0b23a";
-const ACTIVE_COLOR = "#2f5fa8";
 
 export interface PixelVillageProps {
   village: {
@@ -33,8 +33,6 @@ export interface PixelVillageProps {
     active: boolean;
     hidden: boolean;
     ownerColor?: string;
-    /** A colour the player picked for this village's owner: the roofs take it and a ring in it marks the village. */
-    markColor?: string;
   };
   tw: number;
   th: number;
@@ -55,13 +53,11 @@ function tinted(mask: string, color: string): CSSProperties {
 }
 
 function Banner({
-  kind,
   left,
   top,
   kx,
   ky,
 }: {
-  kind: "bonus" | "active";
   left: number;
   top: number;
   kx: number;
@@ -70,7 +66,7 @@ function Banner({
   const [w, h] = sizes.banner as [number, number];
   return (
     <div
-      data-banner={kind}
+      data-banner="bonus"
       style={{
         position: "absolute",
         left,
@@ -85,18 +81,13 @@ function Banner({
         draggable={false}
         style={{ display: "block", width: "100%", height: "100%" }}
       />
-      <div
-        style={tinted(
-          "banner-cloth",
-          kind === "bonus" ? BONUS_COLOR : ACTIVE_COLOR,
-        )}
-      />
+      <div style={tinted("banner-cloth", BONUS_COLOR)} />
     </div>
   );
 }
 
 export function PixelVillage({ village, tw, th }: PixelVillageProps) {
-  const { owner, size, bonus, active, hidden, ownerColor, markColor } = village;
+  const { owner, size, bonus, active, hidden, ownerColor } = village;
   const kx = tw / 96,
     ky = th / 64;
   const [nw, nh] = (sizes as Record<string, number[]>)[`village-${size}`] as [
@@ -107,8 +98,7 @@ export function PixelVillage({ village, tw, th }: PixelVillageProps) {
     h = Math.round(nh * ky * VILLAGE_SCALES[size]!);
   const left = Math.round((tw - w) / 2),
     top = Math.round((th - h) / 2);
-  // A marked player's colour wins over their own: the player picked it to pick them out.
-  const tint = owner === "player" ? (markColor ?? ownerColor) : undefined;
+  const tint = owner === "player" && ownerColor ? ownerColor : undefined;
   const name =
     owner === "barbarian"
       ? `village-${size}-barb`
@@ -121,24 +111,6 @@ export function PixelVillage({ village, tw, th }: PixelVillageProps) {
       data-pixel-village
       style={{ position: "absolute", inset: 0, opacity: hidden ? 0.45 : 1 }}
     >
-      {/* A marked player's village is ringed in their colour: roofs alone are too small to find at a glance, and the
-          ring is what makes a village of theirs readable on a map full of them. */}
-      {markColor && (
-        <div
-          data-mark={markColor}
-          style={{
-            position: "absolute",
-            left: left - 1,
-            top: top - 1,
-            width: w + 2,
-            height: h + 2,
-            border: `2px solid ${markColor}`,
-            borderRadius: "4px",
-            boxSizing: "border-box",
-            boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
-          }}
-        />
-      )}
       {active && (
         <div
           style={{
@@ -165,18 +137,8 @@ export function PixelVillage({ village, tw, th }: PixelVillageProps) {
         />
         {tint && <div data-roof style={tinted(`village-${size}-roof`, tint)} />}
       </div>
-      {active && (
-        <Banner
-          kind="active"
-          left={left - 2}
-          top={top - Math.round(bannerH * 0.45)}
-          kx={kx}
-          ky={ky}
-        />
-      )}
       {bonus && (
         <Banner
-          kind="bonus"
           left={left + Math.round(w * 0.7)}
           top={top - Math.round(bannerH * 0.45)}
           kx={kx}

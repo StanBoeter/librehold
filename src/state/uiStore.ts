@@ -15,7 +15,7 @@ export type ViewId =
   | "settings";
 export type AnimationMode = "full" | "limited" | "off";
 
-/** Another player the player wants to see at a glance: their villages are drawn in this colour on the map and minimap. */
+/** Another player the player wants to see at a glance: their villages are marked in this colour on the map and minimap. */
 export interface PlayerMark {
   /** The player's name as it shows on the map; matched without regard to case or surrounding spaces. */
   name: string;
@@ -112,7 +112,7 @@ function defaultPrefs(): UiPrefs {
 }
 
 /** Marks read back from storage: only a name and a hex colour survive, so a hand-edited entry cannot break the map. */
-function cleanMarks(raw: unknown): PlayerMark[] {
+export function cleanMarks(raw: unknown): PlayerMark[] {
   if (!Array.isArray(raw)) return [];
   const out: PlayerMark[] = [];
   const seen = new Set<string>();

@@ -109,7 +109,7 @@ export class MapCache {
     return out.sort((a, b) => a.x - b.x || a.y - b.y);
   }
 
-  /** Every village of the chunks loaded so far: the minimap draws the whole map from them. */
+  /** Every village of the chunks loaded so far: the minimap draws the marked players from them. */
   loaded(): MapTile[] {
     const out: MapTile[] = [];
     for (const c of this.chunks.values())
