@@ -295,6 +295,7 @@ export function stateFixture(
       trader: structuredClone(g.trader),
       villageGroups: structuredClone(g.villageGroups),
       buildTemplates: structuredClone(g.buildTemplates),
+      marks: structuredClone(g.marks),
       aggressorUntil: g.humanAggressorUntil,
     },
     unreadReports: g.reports.filter((r) => !r.read).length,

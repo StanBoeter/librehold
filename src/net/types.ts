@@ -9,6 +9,7 @@ import type {
   NewsItem,
   Player,
   PlayerId,
+  PlayerMark,
   PlayerStats,
   PlayerStatus,
   QuestState,
@@ -39,6 +40,8 @@ export interface HumanState {
   trader: TraderState;
   villageGroups: VillageGroup[];
   buildTemplates: BuildTemplate[];
+  /** Other players the player marked on the map; absent on a state that has none. */
+  marks?: PlayerMark[];
   aggressorUntil: number;
 }
 

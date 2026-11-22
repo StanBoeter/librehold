@@ -15,13 +15,6 @@ export type ViewId =
   | "settings";
 export type AnimationMode = "full" | "limited" | "off";
 
-/** Another player the player wants to see at a glance: their villages are marked in this colour on the map and minimap. */
-export interface PlayerMark {
-  /** The player's name as it shows on the map; matched without regard to case or surrounding spaces. */
-  name: string;
-  color: string;
-}
-
 export interface RallyPrefill {
   x: number;
   y: number;
@@ -58,12 +51,6 @@ export interface UiPrefs {
   mapMerchants: boolean;
   /** The map's toolbar over the map is unfolded. On a phone it can take a third of the screen, so it can be put away. */
   mapToolbarOpen: boolean;
-  /**
-   * Other players picked out by name, each in a colour of the player's choosing: their villages take that colour on
-   * the map and on the minimap. Remembered per browser, so the marks survive a reload and follow the player to
-   * another world.
-   */
-  mapPlayerMarks: PlayerMark[];
   /** The build planner is shown on the Village tab; the Town Hall always has it. */
   showBuildPlan: boolean;
   /** Buildings that are not yet available are listed on the Village tab; the Town Hall always lists them. */
@@ -104,33 +91,10 @@ function defaultPrefs(): UiPrefs {
     mapSupport: true,
     mapMerchants: true,
     mapToolbarOpen: true,
-    mapPlayerMarks: [],
     showBuildPlan: true,
     showLockedBuildings: true,
     reportsCompactUnits: narrowScreen(),
   };
-}
-
-/** Marks read back from storage: only a name and a hex colour survive, so a hand-edited entry cannot break the map. */
-export function cleanMarks(raw: unknown): PlayerMark[] {
-  if (!Array.isArray(raw)) return [];
-  const out: PlayerMark[] = [];
-  const seen = new Set<string>();
-  for (const m of raw) {
-    if (!m || typeof m !== "object") continue;
-    const { name, color } = m as Partial<PlayerMark>;
-    if (typeof name !== "string" || typeof color !== "string") continue;
-    const key = markKey(name);
-    if (!key || seen.has(key) || !/^#[0-9a-f]{6}$/i.test(color)) continue;
-    seen.add(key);
-    out.push({ name: name.trim(), color });
-  }
-  return out;
-}
-
-/** A name as marks are compared: trimmed and case-folded, since players type it from memory. */
-export function markKey(name: string): string {
-  return name.trim().toLowerCase();
 }
 
 function loadPrefs(): UiPrefs {
@@ -139,11 +103,7 @@ function loadPrefs(): UiPrefs {
     const raw = localStorage.getItem(PREFS_KEY);
     if (!raw) return base;
     const parsed = JSON.parse(raw) as Partial<UiPrefs>;
-    return {
-      ...base,
-      ...parsed,
-      mapPlayerMarks: cleanMarks(parsed.mapPlayerMarks),
-    };
+    return { ...base, ...parsed };
   } catch {
     return base;
   }
