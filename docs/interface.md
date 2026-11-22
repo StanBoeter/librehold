@@ -62,7 +62,9 @@ checks the fonts.
   stack: **Armies** decides which armies are drawn *at all* (their route lines and arrowheads included), while
   **Icons** only strips the sprites and markers off the armies that are drawn — with icons off, every army above keeps
   its line and arrowhead. Next to them are "Player colours" (other players' villages in their colour) and "Hide
-  villages > N pts" (villages above that many points left out); the colours and the limit are per visit. The army
+  villages > N pts" (villages above that many points left out); the colours and the limit are per visit. A player the
+  player marked by name keeps their mark colour even with "Player colours" off — see [Map — marked players](#map--marked-players).
+  The army
   layers are filtered by `withArmyLayers` in `src/ui/map/armies.ts`; every toggle is on by default and remembered per
   browser in `lh-ui-prefs`:
   - "Show farming" takes the player's farm raids off the map, the armies and the command dots alike: raids sent from a
@@ -78,6 +80,25 @@ checks the fonts.
   - "Merchants" (`trade`) — the player's merchants on the road.
   An attack on the player (`incomingAttack`) and a threat to their armies (`threat`) have no toggle: no layer switch
   ever hides an attack on the player. The command dots are not a layer either — "Icons" is what takes them off.
+
+## Map — marked players
+
+Under the map, above the line that explains how the map works, sits the **Marked players** panel (`[data-player-marks]`,
+`src/ui/map/PlayerMarksPanel.tsx`). It is the answer to "I know where they are but I cannot pick them out": type a
+player's name, pick a colour, and every village of theirs is drawn in it — the roofs take the colour and the village is
+ringed in it, since roofs alone are a few pixels at the default zoom — and their dots on the minimap take it too. The
+minimap draws marked players' villages from the map chunks as they load, because the player's state carries only their
+own villages; that is why the dots appear as the player pans the map.
+
+- Names are matched trimmed and without regard to case, since players type them from memory; the field offers the
+  players in the world as suggestions (`datalist`). A name no player has can still be marked — it is there for when
+  they join or the name is corrected — but the panel says so.
+- The mark outlives "Player colours": that switch turns the owners' own colours off to calm a busy map, while a mark is
+  a player's deliberate choice, and would be useless exactly when the map is at its busiest.
+- Marks are a display choice in `UiPrefs.mapPlayerMarks` (`src/state/uiStore.ts`), remembered per browser in
+  `lh-ui-prefs` and not tied to a world, so they follow the player between worlds. The matching is `markLookup` in
+  `src/ui/map/playerMarks.ts`; a new mark starts from a colour no other mark uses (`nextMarkColor`). The server knows
+  nothing of them: a mark changes nothing but the drawing.
 
 ## Market
 

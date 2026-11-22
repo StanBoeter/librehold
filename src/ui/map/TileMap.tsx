@@ -22,6 +22,7 @@ import {
   type TileArtProps,
 } from "./MapArt";
 import { MINIMAP_PALETTE, minimapImage } from "./minimap";
+import type { MarkLookup } from "./playerMarks";
 import { TerrainLayer } from "./TerrainLayer";
 import {
   FRAME_H,
@@ -72,7 +73,9 @@ export interface TileMapProps {
   isVillage: (x: number, y: number) => boolean;
   dots?: Record<string, Dot>;
   activeId?: string;
-  minimapDots: { x: number; y: number; player: boolean }[];
+  /** Other players the player picked out by name, and the colour each is drawn in. */
+  marks?: MarkLookup;
+  minimapDots: { x: number; y: number; player: boolean; color?: string }[];
   armies: MapArmy[];
   clock: ArmyClock;
   animations: AnimationMode;
@@ -128,6 +131,7 @@ function Tile({
   activeId,
   dot,
   icons = true,
+  marks,
   useTile,
   onSelect,
 }: {
@@ -144,11 +148,13 @@ function Tile({
   activeId?: string;
   dot?: Dot;
   icons?: boolean;
+  marks?: MarkLookup;
   useTile: TileMapProps["useTile"];
   onSelect: (x: number, y: number, village: boolean) => void;
 }) {
   const t = useTile(x, y);
   const ownerColor = colors ? villageTint(t) : undefined;
+  const markColor = t.kind === "village" ? marks?.(t.ownerName) : undefined;
   const hidden =
     t.kind === "village" && t.ownerId === null && t.points > maxPoints;
   const village: TileArtProps["village"] =
@@ -160,6 +166,7 @@ function Tile({
           active: t.id === activeId,
           hidden,
           ownerColor,
+          markColor,
         }
       : undefined;
   const label = tr(`biome.${BIOME_KEY[tileBiome(seed, x, y)]}`);
@@ -209,6 +216,7 @@ function Minimap({
     imageRendering: "pixelated",
   };
   const k = 200 / mapSize;
+  const players = dots.filter((d) => d.player);
   return (
     <svg
       width={200}
@@ -236,20 +244,19 @@ function Minimap({
             fill="#5c4528"
           />
         ))}
-      {dots
-        .filter((d) => d.player)
-        .map((d) => (
-          <rect
-            key={`p${d.x},${d.y}`}
-            x={d.x * k - 2}
-            y={d.y * k - 2}
-            width={4}
-            height={4}
-            fill="#2f5fa8"
-            stroke="#fff"
-            strokeWidth={0.5}
-          />
-        ))}
+      {players.map((d) => (
+        <rect
+          key={`p${d.x},${d.y}`}
+          data-minimap-dot={d.color ?? undefined}
+          x={d.x * k - (d.color ? 2.5 : 2)}
+          y={d.y * k - (d.color ? 2.5 : 2)}
+          width={d.color ? 5 : 4}
+          height={d.color ? 5 : 4}
+          fill={d.color ?? "#2f5fa8"}
+          stroke="#fff"
+          strokeWidth={d.color ? 1 : 0.5}
+        />
+      ))}
       <rect
         x={(center.x - cols / 2) * k}
         y={(center.y - rows / 2) * k}
@@ -582,6 +589,7 @@ export function TileMap(p: TileMapProps) {
           activeId={p.activeId}
           dot={p.dots?.[`v:${x}:${y}`]}
           icons={p.icons}
+          marks={p.marks}
           useTile={p.useTile}
           onSelect={(sx, sy, village) => {
             if (!drag.current?.moved) p.onSelectTile(sx, sy, village);

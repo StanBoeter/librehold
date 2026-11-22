@@ -33,6 +33,8 @@ export interface PixelVillageProps {
     active: boolean;
     hidden: boolean;
     ownerColor?: string;
+    /** A colour the player picked for this village's owner: the roofs take it and a ring in it marks the village. */
+    markColor?: string;
   };
   tw: number;
   th: number;
@@ -94,7 +96,7 @@ function Banner({
 }
 
 export function PixelVillage({ village, tw, th }: PixelVillageProps) {
-  const { owner, size, bonus, active, hidden, ownerColor } = village;
+  const { owner, size, bonus, active, hidden, ownerColor, markColor } = village;
   const kx = tw / 96,
     ky = th / 64;
   const [nw, nh] = (sizes as Record<string, number[]>)[`village-${size}`] as [
@@ -105,7 +107,8 @@ export function PixelVillage({ village, tw, th }: PixelVillageProps) {
     h = Math.round(nh * ky * VILLAGE_SCALES[size]!);
   const left = Math.round((tw - w) / 2),
     top = Math.round((th - h) / 2);
-  const tint = owner === "player" && ownerColor ? ownerColor : undefined;
+  // A marked player's colour wins over their own: the player picked it to pick them out.
+  const tint = owner === "player" ? (markColor ?? ownerColor) : undefined;
   const name =
     owner === "barbarian"
       ? `village-${size}-barb`
@@ -118,6 +121,24 @@ export function PixelVillage({ village, tw, th }: PixelVillageProps) {
       data-pixel-village
       style={{ position: "absolute", inset: 0, opacity: hidden ? 0.45 : 1 }}
     >
+      {/* A marked player's village is ringed in their colour: roofs alone are too small to find at a glance, and the
+          ring is what makes a village of theirs readable on a map full of them. */}
+      {markColor && (
+        <div
+          data-mark={markColor}
+          style={{
+            position: "absolute",
+            left: left - 1,
+            top: top - 1,
+            width: w + 2,
+            height: h + 2,
+            border: `2px solid ${markColor}`,
+            borderRadius: "4px",
+            boxSizing: "border-box",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
+          }}
+        />
+      )}
       {active && (
         <div
           style={{
