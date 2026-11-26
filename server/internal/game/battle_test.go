@@ -894,3 +894,66 @@ func TestReportWithoutResearchStillDecodes(t *testing.T) {
 		t.Fatalf("units %+v", r.Attacker.Units)
 	}
 }
+
+// The report button hands a battle to the simulator, so the data a report holds has to be enough to reproduce that
+// battle. This runs a real attack, takes the report it produced, and simulates it from the report alone: the outcome,
+// both sides' losses, the wall and the building damage must all come back the same.
+func TestAReportReplayedInTheSimulatorReproducesItself(t *testing.T) {
+	cfg := gametest.TestConfig()
+	cfg.BeginnerProtectionDays = 0
+	w, home := gametest.NewWorldWithHuman(71, cfg)
+	target, err := game.JoinHuman(w, "h2", "Defender", 2, game.QuadrantRandom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target.Units = game.Units{game.USpear: 300, game.UArcher: 150}
+	target.Buildings[game.BWall] = 12
+	target.Buildings[game.BBarracks] = 9
+	target.Buildings[game.BMain] = 15
+	target.Research = game.Units{game.USpear: 2, game.UArcher: 3}
+	home.Units = game.Units{game.USword: 500, game.UAxe: 200, game.URam: 20, game.UCatapult: 30}
+	home.Research = game.Units{game.USword: 3, game.UAxe: 2, game.URam: 1, game.UCatapult: 1}
+
+	cmd := mustSend(t, w, home, target.X, target.Y, game.UnitCounts(home.Units), "attack")
+	advance(t, w, cmd.ArrivesAt)
+
+	reports := w.ReportsOf("h1")
+	if len(reports) != 1 {
+		t.Fatalf("expected one report, got %d", len(reports))
+	}
+	r := reports[0]
+	if r.Attacker.Research == nil || r.Defender.Research == nil {
+		t.Fatal("the report does not carry the levels the battle was fought at")
+	}
+
+	// Exactly what the report button builds, from exactly what the report holds.
+	sim := game.SimInput{
+		Attacker: game.SimSide{Units: r.Attacker.Units, Research: *r.Attacker.Research},
+		Defender: game.SimSide{
+			Units: r.Defender.Units, Research: *r.Defender.Research,
+			Wall: r.WallBefore, Buildings: target.Buildings,
+		},
+		Luck:   r.Luck,
+		Morale: r.Morale,
+	}
+	got := game.SimulateBattle(sim, cfg.BattleLosses)
+
+	if got.Outcome != r.Outcome {
+		t.Fatalf("replayed outcome %s, the report says %s", got.Outcome, r.Outcome)
+	}
+	if got.AttackerLosses != game.UnitCounts(r.Attacker.Losses) {
+		t.Fatalf("attacker losses %v, the report says %v", got.AttackerLosses, r.Attacker.Losses)
+	}
+	if got.DefenderLosses != game.UnitCounts(r.Defender.Losses) {
+		t.Fatalf("defender losses %v, the report says %v", got.DefenderLosses, r.Defender.Losses)
+	}
+	if got.WallBefore != r.WallBefore || got.WallAfter != r.WallAfter {
+		t.Fatalf("wall %d -> %d, the report says %d -> %d", got.WallBefore, got.WallAfter, r.WallBefore, r.WallAfter)
+	}
+	if (got.BuildingDamage == nil) != (r.BuildingDamage == nil) {
+		t.Fatalf("building damage %+v, the report says %+v", got.BuildingDamage, r.BuildingDamage)
+	}
+	if got.BuildingDamage != nil && *got.BuildingDamage != *r.BuildingDamage {
+		t.Fatalf("building damage %+v, the report says %+v", *got.BuildingDamage, *r.BuildingDamage)
+	}
+}
