@@ -610,11 +610,9 @@ export function SimulatorTab() {
               </>
             )}
           </div>
-        </div>
-
-        {/* The answer sits beside the question, so a change and its effect can be read without scrolling. */}
-        <div className="flex flex-col gap-2 min-w-0 lg:flex-1">
-          <div>
+          {/* The button closes the column of fields it acts on, rather than sitting at the top of the answer column
+              where it floated beside the army headers. Fill the battle in, then press. */}
+          <div className="p-3 pt-0">
             <button
               type="button"
               className="btn btn-primary"
@@ -624,6 +622,10 @@ export function SimulatorTab() {
               {busy ? t("sim.running") : t("sim.run")}
             </button>
           </div>
+        </div>
+
+        {/* The answer sits beside the question, so a change and its effect can be read without scrolling. */}
+        <div className="flex flex-col gap-2 min-w-0 lg:flex-1">
           {error && <p className="text-bad text-[12px]">{error}</p>}
           {lastRun && <SimulatorResult run={lastRun} />}
         </div>
