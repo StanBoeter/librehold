@@ -65,6 +65,17 @@ const SIM_DEFAULT_MAIN_LEVEL = 5;
  */
 const TROOPS_FIELD = "w-16 sm:w-20 pr-5";
 
+/**
+ * A level field: one digit, but a dropdown.
+ *
+ * The pixel skin gives every field a 6px border and 4px padding on each side, so 20 of the box is gone before the
+ * text starts, and a select also has to leave room for the platform's own dropdown arrow. Squeezed to `w-10` (40px)
+ * that left about 20px for both, and on a phone the arrow took it: the level read as an empty box. It is `w-14`
+ * from the start now, which is what it had before it was narrowed to buy the troop fields room — the two armies
+ * still fit across a 320px phone at this width.
+ */
+const LEVEL_FIELD = "w-14";
+
 /** A level record from anything partial, clamped to the Smithy's floor so a missing level reads as level 1, not 0. */
 function levelsOf(
   levels: Partial<Record<UnitId, number>> | undefined,
@@ -121,7 +132,7 @@ function LevelField({
       </span>
       <select
         id={`sim-${side === "attacker" ? "atk" : "def"}-lvl-${unit}`}
-        className="field w-10 sm:w-14"
+        className={`field ${LEVEL_FIELD}`}
         value={value}
         onChange={(e) => onSet(Number(e.target.value))}
       >
