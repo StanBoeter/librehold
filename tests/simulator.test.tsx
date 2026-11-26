@@ -995,9 +995,16 @@ describe("the simulator layout", () => {
     const row = left.parentElement!;
     expect(row.className).toContain("lg:flex-row");
     expect(row.className).toContain("flex-col");
+
+    // The button closes the column of fields it acts on: it sits under the last setting, not at the top of the
+    // answer column where it floated beside the army headers.
     const simulate = screen.getByRole("button", { name: "Simulate" });
-    expect(left.contains(simulate)).toBe(false);
-    expect(row.contains(simulate)).toBe(true);
+    expect(left.contains(simulate)).toBe(true);
+    const lastSetting = document.getElementById("sim-luck")!;
+    expect(
+      lastSetting.compareDocumentPosition(simulate) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     // Every setting lives in that one block, not scattered across a four-column strip.
     for (const id of ["sim-morale", "sim-luck", "sim-catapult"]) {
