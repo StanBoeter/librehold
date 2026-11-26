@@ -135,3 +135,14 @@ func (a *api) news(w http.ResponseWriter, r *http.Request, acct *app.Account) {
 		return a.svc.News(r.Context(), acct, wid, int(limit))
 	})
 }
+
+// simulateBattle is the battle simulator: a POST because the input is a whole battle, but it writes nothing.
+func (a *api) simulateBattle(w http.ResponseWriter, r *http.Request, acct *app.Account) {
+	a.inWorld(w, r, func(wid int64) (any, error) {
+		var in game.SimInput
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			return nil, &app.ErrValidation{Field: "body", Code: "invalid"}
+		}
+		return a.svc.SimulateBattle(r.Context(), acct, wid, in)
+	})
+}

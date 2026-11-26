@@ -910,3 +910,187 @@ func TestWipedOutAttackLeavesTheIntelAlone(t *testing.T) {
 			before.Intel, seenUnits.Total(), seenWall, after.Intel, after.Intel.Units.Total(), after.Intel.Wall)
 	}
 }
+
+// A report has to say what Smithy levels the battle was fought at: the simulator replays a report through the same
+// rules, and replayed at level 1 a level-3 army fights a different battle than the one that happened.
+func TestBattleReportCarriesBothSidesResearch(t *testing.T) {
+	cfg := gametest.TestConfig()
+	cfg.BeginnerProtectionDays = 0
+	w, att := gametest.NewWorldWithHuman(31, cfg)
+	def, err := game.JoinHuman(w, "h2", "Defender", 2, game.QuadrantRandom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	att.Research[game.USword] = 3
+	def.Research[game.USpear] = 2
+	att.Units[game.USword] = 200
+	def.Units[game.USpear] = 50
+
+	c := mustSend(t, w, att, def.X, def.Y, game.UnitCounts{game.USword: 200}, "attack")
+	advance(t, w, c.ArrivesAt)
+
+	reports := w.ReportsOf("h1")
+	if len(reports) != 1 {
+		t.Fatalf("reports %d", len(reports))
+	}
+	r := reports[0]
+	if r.Attacker.Research == nil || r.Defender.Research == nil {
+		t.Fatal("a battle report did not record the levels it was fought at")
+	}
+	if got := (*r.Attacker.Research)[game.USword]; got != 3 {
+		t.Fatalf("attacker swordsmen fought at level %d, want 3", got)
+	}
+	if got := (*r.Defender.Research)[game.USpear]; got != 2 {
+		t.Fatalf("defender spearmen fought at level %d, want 2", got)
+	}
+	// The other side's report says the same thing: it is the same battle.
+	theirs := w.ReportsOf("h2")
+	if len(theirs) != 1 || theirs[0].Attacker.Research == nil || (*theirs[0].Defender.Research)[game.USpear] != 2 {
+		t.Fatalf("the defender's copy of the report lost the levels: %+v", theirs)
+	}
+}
+
+// A report written before levels were recorded has none, and must still decode: the simulator fills in its own default.
+func TestReportWithoutResearchStillDecodes(t *testing.T) {
+	var r game.Report
+	if err := json.Unmarshal([]byte(`{"type":"attack","attacker":{"units":{"sword":10},"losses":{}}}`), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Attacker.Research != nil {
+		t.Fatalf("an old report grew levels: %+v", r.Attacker.Research)
+	}
+	if r.Attacker.Units[game.USword] != 10 {
+		t.Fatalf("units %+v", r.Attacker.Units)
+	}
+}
+
+// The report button hands a battle to the simulator, so the data a report holds has to be enough to reproduce that
+// battle: the outcome, both sides' losses, the wall and the building the catapults hit all have to come back the same.
+// The attack here is a winning siege, so every one of those numbers is actually exercised.
+func TestAReportReplayedInTheSimulatorReproducesItself(t *testing.T) {
+	cfg := gametest.TestConfig()
+	cfg.BeginnerProtectionDays = 0
+	w, home := gametest.NewWorldWithHuman(71, cfg)
+	target, err := game.JoinHuman(w, "h2", "Defender", 2, game.QuadrantRandom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target.Units = game.Units{game.USpear: 50, game.UArcher: 10}
+	target.Buildings[game.BWall] = 12
+	target.Buildings[game.BBarracks] = 9
+	target.Buildings[game.BMain] = 15
+	target.Research = game.Units{game.USpear: 2, game.UArcher: 3}
+	home.Units = game.Units{game.USword: 9000, game.URam: 200, game.UCatapult: 300}
+	home.Research = game.Units{game.USword: 3, game.URam: 1, game.UCatapult: 1}
+
+	cmd := mustSend(t, w, home, target.X, target.Y, game.UnitCounts(home.Units), "attack")
+	advance(t, w, cmd.ArrivesAt)
+
+	r := w.ReportsOf("h1")[0]
+	if r.Outcome != "attackerWon" || r.BuildingDamage == nil {
+		t.Fatalf("the siege did not go through, so it proves nothing: %s %+v", r.Outcome, r.BuildingDamage)
+	}
+	if r.Attacker.Research == nil || r.Defender.Research == nil {
+		t.Fatal("the report does not carry the levels the battle was fought at")
+	}
+
+	// Exactly what the report button builds, from exactly what the report holds: a report carries no buildings,
+	// only the wall the battle was fought over and the building the catapults hit.
+	hit := r.BuildingDamage.Building
+	got := game.SimulateBattle(game.SimInput{
+		Attacker: game.SimSide{Units: r.Attacker.Units, Research: *r.Attacker.Research},
+		Defender: game.SimSide{
+			Units: r.Defender.Units, Research: *r.Defender.Research, Wall: r.WallBefore,
+		},
+		Luck: r.Luck, Morale: r.Morale, CatapultTarget: &hit,
+	}, cfg.BattleLosses)
+
+	if got.Outcome != r.Outcome {
+		t.Fatalf("replayed outcome %s, the report says %s", got.Outcome, r.Outcome)
+	}
+	if got.AttackerLosses != game.UnitCounts(r.Attacker.Losses) {
+		t.Fatalf("attacker losses %v, the report says %v", got.AttackerLosses, r.Attacker.Losses)
+	}
+	if got.DefenderLosses != game.UnitCounts(r.Defender.Losses) {
+		t.Fatalf("defender losses %v, the report says %v", got.DefenderLosses, r.Defender.Losses)
+	}
+	if got.WallBefore != r.WallBefore || got.WallAfter != r.WallAfter {
+		t.Fatalf("wall %d -> %d, the report says %d -> %d", got.WallBefore, got.WallAfter, r.WallBefore, r.WallAfter)
+	}
+	if got.BuildingDamage == nil || *got.BuildingDamage != *r.BuildingDamage {
+		t.Fatalf("building damage %+v, the report says %+v", got.BuildingDamage, *r.BuildingDamage)
+	}
+}
+
+// Naming the building a report hit is not enough to replay it: a catapult only aims at a building the defender is
+// known to have, and a report holds no buildings at all. Sending the name alone therefore left the simulator to fill
+// the village in itself, and the named target was skipped for whatever that guess happened to have. The report does
+// hold the level the building stood at, so that is what has to be sent with the name.
+func TestReplayingASiegeThatBrokeSomethingOtherThanTheWall(t *testing.T) {
+	for seed := uint32(1); seed <= 40; seed++ {
+		cfg := gametest.TestConfig()
+		cfg.BeginnerProtectionDays = 0
+		w, home := gametest.NewWorldWithHuman(seed, cfg)
+		target, err := game.JoinHuman(w, "h2", "Defender", 2, game.QuadrantRandom)
+		if err != nil {
+			t.Fatal(err)
+		}
+		target.Buildings[game.BWall] = 12
+		target.Buildings[game.BBarracks] = 9
+		target.Buildings[game.BMain] = 15
+		home.Units = game.Units{game.USword: 9000, game.URam: 200, game.UCatapult: 300}
+		cmd := mustSend(t, w, home, target.X, target.Y, game.UnitCounts(home.Units), "attack")
+		advance(t, w, cmd.ArrivesAt)
+
+		r := w.ReportsOf("h1")[0]
+		if r.BuildingDamage == nil {
+			continue
+		}
+		// The wall is the one building the simulator would have filled in anyway, so a run that hit it proves
+		// nothing about whether the named target survived.
+		if r.BuildingDamage.Building == game.BWall {
+			continue
+		}
+		hit := r.BuildingDamage.Building
+
+		// Exactly what the report button builds.
+		got := game.SimulateBattle(game.SimInput{
+			Attacker: game.SimSide{Units: r.Attacker.Units, Research: *r.Attacker.Research},
+			Defender: game.SimSide{
+				Units: r.Defender.Units, Research: *r.Defender.Research, Wall: r.WallBefore,
+				Buildings: buildingsWith(hit, r.BuildingDamage.From),
+			},
+			Luck: r.Luck, Morale: r.Morale, CatapultTarget: &hit,
+		}, cfg.BattleLosses)
+
+		if got.BuildingDamage == nil {
+			t.Fatalf("seed %d: the replay broke nothing, the report broke %+v", seed, *r.BuildingDamage)
+		}
+		if *got.BuildingDamage != *r.BuildingDamage {
+			t.Fatalf("seed %d: building damage %+v, the report says %+v", seed, *got.BuildingDamage, *r.BuildingDamage)
+		}
+
+		// The name without the level is what used to be sent, and it has to be shown to fail: otherwise this test
+		// would pass on a simulator that ignores the buildings it is given.
+		blind := game.SimulateBattle(game.SimInput{
+			Attacker: game.SimSide{Units: r.Attacker.Units, Research: *r.Attacker.Research},
+			Defender: game.SimSide{
+				Units: r.Defender.Units, Research: *r.Defender.Research, Wall: r.WallBefore,
+			},
+			Luck: r.Luck, Morale: r.Morale, CatapultTarget: &hit,
+		}, cfg.BattleLosses)
+		if blind.BuildingDamage != nil && *blind.BuildingDamage == *r.BuildingDamage {
+			t.Fatalf("seed %d: naming %v without its level still replayed it, so the level is not what fixes this",
+				seed, hit)
+		}
+		return
+	}
+	t.Fatal("no run broke a building other than the wall, so the case was never exercised")
+}
+
+// buildingsWith is a village holding one building at a level and nothing else.
+func buildingsWith(id game.BuildingID, level int) game.Buildings {
+	var b game.Buildings
+	b[id] = level
+	return b
+}

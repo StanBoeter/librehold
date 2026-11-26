@@ -86,7 +86,7 @@ export const GUIDES: GuideDef[] = [
   },
   {
     id: "scouting",
-    sections: ["scouts", "sight", "field", "turnBack"],
+    sections: ["scouts", "sight", "field", "turnBack", "simulator"],
     shots: [
       shot("scouting-army-card", scoutingArmyCard, "sight"),
       shot("scouting-field-report", scoutingFieldReport, "field"),

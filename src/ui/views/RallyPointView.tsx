@@ -41,8 +41,9 @@ import { t, useT } from "../../i18n/i18n";
 import { RichText } from "../components/RichText";
 import { COMMAND_ICON, commandEnds, villageLabelOf } from "../villageName";
 import { NumberInput } from "../../shared/NumberInput";
+import { SimulatorTab } from "./SimulatorView";
 
-type Tab = "send" | "commands" | "templates";
+type Tab = "send" | "commands" | "templates" | "simulate";
 
 function blockerText(b: SendBlocker, now: number): string {
   switch (b.kind) {
@@ -722,7 +723,10 @@ function TemplatesTab() {
 
 export function RallyPointView() {
   const prefill = useUiStore((s) => s.rallyPrefill);
-  const [tab, setTab] = useState<Tab>(prefill ? "send" : "send");
+  const simPrefill = useUiStore((s) => s.simPrefill);
+  const [tab, setTab] = useState<Tab>(
+    prefill ? "send" : simPrefill ? "simulate" : "send",
+  );
   const commandCount = useGameStore((s) => playerCommands(s.game!).length);
   const activeId = useGameStore((s) => selectActiveVillage(s).id);
   useEffect(() => {
@@ -738,6 +742,7 @@ export function RallyPointView() {
             ["send", t("rally.tab.send")],
             ["commands", t("rally.tab.commands", { n: commandCount })],
             ["templates", t("rally.tab.templates")],
+            ["simulate", t("rally.tab.simulate")],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -753,6 +758,7 @@ export function RallyPointView() {
       {tab === "send" && <SendTab />}
       {tab === "commands" && <CommandsTab />}
       {tab === "templates" && <TemplatesTab />}
+      {tab === "simulate" && <SimulatorTab />}
     </div>
   );
 }

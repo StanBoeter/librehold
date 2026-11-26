@@ -22,6 +22,22 @@ export interface RallyPrefill {
   mode?: "attack" | "support";
 }
 
+/** A battle handed to the simulator from elsewhere: a report, or a village on the map. */
+export interface SimPrefill {
+  attacker?: Partial<Record<UnitId, number>>;
+  defender?: Partial<Record<UnitId, number>>;
+  /** Smithy level per unit, so a battle is replayed with the levels it was actually fought at. */
+  attackerResearch?: Partial<Record<UnitId, number>>;
+  defenderResearch?: Partial<Record<UnitId, number>>;
+  /** The defender's buildings, so catapults aim at what the village really has. */
+  defenderBuildings?: Partial<Record<BuildingId, number>>;
+  /** The building a report says the catapults hit, so a replay sieges the same one instead of guessing. */
+  catapultTarget?: BuildingId;
+  wall?: number;
+  luck?: number;
+  morale?: number;
+}
+
 export interface UiPrefs {
   animations: AnimationMode;
   sound: boolean;
@@ -151,6 +167,10 @@ interface UiStore {
   rallyPrefill: RallyPrefill | null;
   openRally: (prefill: RallyPrefill) => void;
   consumeRallyPrefill: () => RallyPrefill | null;
+  /** A battle to open the simulator with (one-off). */
+  simPrefill: SimPrefill | null;
+  openSimulator: (prefill?: SimPrefill) => void;
+  consumeSimPrefill: () => SimPrefill | null;
   mapCenter: { x: number; y: number } | null;
   goToMap: (x: number, y: number) => void;
   /** Player profile (a window over the current view). */
@@ -214,6 +234,14 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   consumeRallyPrefill: () => {
     const p = get().rallyPrefill;
     if (p) set({ rallyPrefill: null });
+    return p;
+  },
+  simPrefill: null,
+  openSimulator: (simPrefill) =>
+    set({ simPrefill: simPrefill ?? null, view: "rally" }),
+  consumeSimPrefill: () => {
+    const p = get().simPrefill;
+    if (p) set({ simPrefill: null });
     return p;
   },
   mapCenter: null,

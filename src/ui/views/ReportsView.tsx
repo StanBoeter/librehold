@@ -25,125 +25,17 @@ import { formatDuration, formatNumber } from "../format";
 import { useClock } from "../useClock";
 import { humanVillageIds, isHumanVillage } from "../../engine/players";
 import { canCancelCommand } from "../../engine/commands";
+import {
+  BattleSidePanel,
+  DamageLines,
+  LootLine,
+  LuckBar,
+  ReportCard,
+  ReportSection,
+  usedUnits,
+} from "../report/battleReport";
 
 type Filter = "all" | ReportType | "unread";
-
-/**
- * One side of a battle: a red section bar with the side's name, a labelled line naming the village it came from (or
- * went to), then a table whose first column holds the row labels and whose remaining columns are the unit icons.
- *
- * Both sides are handed the same `units` list, so their tables line up column for column. By default that is all
- * twelve unit types in a fixed order, so a row never shifts under the eye between reports; the reader can narrow it
- * to the units this battle actually used, which fits a phone screen without scrolling sideways. A side the reader
- * could not have seen (`hidden`) shows no army: a wiped-out force has nobody left to describe what beat it.
- */
-function BattleSidePanel({
-  title,
-  side,
-  placeLabel,
-  village,
-  bot,
-  hidden,
-  hiddenText,
-  scroller,
-  units,
-}: {
-  title: string;
-  side: Report["attacker"];
-  /** "Origin:" for the side that marched, "Destination:" for the side that was hit. */
-  placeLabel: string;
-  village: string;
-  bot?: boolean;
-  hidden?: boolean;
-  /** Words for a side the reader was not told about: a wiped-out army and a caught scouting party differ. */
-  hiddenText?: string;
-  /** Told where the sideways scroller is, so the two sides' tables can be scrolled as one. */
-  scroller?: (el: HTMLDivElement | null) => void;
-  /** The unit columns to draw, in order. Both sides are given the same list so the tables stay aligned. */
-  units: readonly UnitId[];
-}) {
-  const t = useT();
-  return (
-    <div>
-      <div className="report-bar">{title}</div>
-      <div className="px-2 py-1 flex flex-wrap items-center gap-x-1.5">
-        <span className="font-semibold">{placeLabel}</span>
-        <span>{village}</span>
-        {bot && <BotTag />}
-      </div>
-      {hidden ? (
-        // The report carries no army for a side whose player was not told it: a wiped-out force has nobody left to
-        // describe what beat it, and a caught scouting party brought nothing back to describe.
-        <p className="px-2 pb-2 italic text-muted">
-          {hiddenText ?? t("reports.armyUnknown")}
-        </p>
-      ) : (
-        <div className="overflow-x-auto" ref={scroller}>
-          <table
-            className={`table-units ${units.length < UNIT_IDS.length ? "table-units-compact" : ""}`}
-          >
-            <thead>
-              <tr>
-                <th />
-                {units.map((u) => (
-                  <th key={u} className="text-center p-0" title={unitName(u)}>
-                    <UnitIcon unit={u} />
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{t("reports.quantity")}</td>
-                {/* A unit the side did not bring reads "0" in a lighter, smaller figure, so a real number stands out
-                    among the zeroes at a glance. */}
-                {units.map((u) => (
-                  <td
-                    key={u}
-                    className={`text-center tabular-nums${(side.units[u] ?? 0) > 0 ? "" : " zero-figure"}`}
-                  >
-                    {formatNumber(side.units[u] ?? 0)}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>{t("reports.losses")}</td>
-                {units.map((u) => (
-                  <td
-                    key={u}
-                    className={`text-center tabular-nums${(side.losses[u] ?? 0) > 0 ? " text-bad font-semibold" : " zero-figure"}`}
-                  >
-                    {formatNumber(side.losses[u] ?? 0)}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LuckBar({ luck }: { luck: number }) {
-  const pct = ((luck + 0.25) / 0.5) * 100;
-  return (
-    <div className="flex items-center gap-2 text-[12px]">
-      <span className="text-muted">−25 %</span>
-      <div className="relative h-3 w-48 border border-wood-border rounded-[2px] bg-gradient-to-r from-[#a33a2a] via-[#c8a54b] to-[#4c8f2f]">
-        <div
-          className="absolute top-[-3px] w-[2px] h-[16px] bg-ink"
-          style={{ left: `calc(${pct}% - 1px)` }}
-        />
-      </div>
-      <span className="text-muted">+25 %</span>
-      <strong className={luck < 0 ? "text-bad" : "text-ok"}>
-        {luck >= 0 ? "+" : ""}
-        {(luck * 100).toFixed(1)} %
-      </strong>
-    </div>
-  );
-}
 
 const fieldPlace = (r: Report) =>
   `${r.field!.x.toFixed(1)}|${r.field!.y.toFixed(1)}`;
@@ -264,6 +156,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   );
   const r = JSON.parse(json) as Report | null;
   const openRally = useUiStore((s) => s.openRally);
+  const openSimulator = useUiStore((s) => s.openSimulator);
   const compactUnits = useUiStore((s) => s.prefs.reportsCompactUnits);
   const setPrefs = useUiStore((s) => s.setPrefs);
   const sendTemplate = useGameStore((s) => s.sendTemplate);
@@ -310,6 +203,42 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
     tx !== undefined &&
     ty !== undefined &&
     !(target && isHumanVillage(target));
+  // A battle report holds both armies, the Smithy levels they fought at and the wall it happened at, so the
+  // simulator can replay it. A scout report holds what the scouts saw: the troops inside, the wall and the
+  // buildings a catapult could aim at. A field report is a meeting in the open with no village to defend.
+  //
+  // A blinded side is the exception. Whoever was wiped out cannot say what beat him, so his copy of the report holds
+  // no enemy army at all — replaying it would fight an empty village and answer a different battle, one the report
+  // never described. There is nothing honest to fill in, so there is no button.
+  const blinded = !!(r.attackerHidden || r.defenderHidden);
+  const canSimulate = !isField && !blinded && (r.type !== "scout" || !!r.scout);
+  const simulate = () => {
+    if (r.type === "scout" && r.scout) {
+      openSimulator({
+        defender: r.scout.units,
+        defenderBuildings: r.scout.buildings,
+        wall: r.scout.buildings.wall,
+      });
+      return;
+    }
+    openSimulator({
+      attacker: r.attacker.units,
+      defender: r.defender.units,
+      attackerResearch: r.attacker.research,
+      defenderResearch: r.defender.research,
+      wall: r.wallBefore,
+      luck: r.luck,
+      morale: r.morale,
+      // A battle picks its catapult target at random, so a replay that guessed would hit another building. The
+      // report names the one that was actually hit, and the level it stood at. Naming the building is not enough
+      // on its own: a catapult only aims at a building the defender has, so without its level the simulator would
+      // skip the named target and guess again.
+      defenderBuildings: r.buildingDamage
+        ? { [r.buildingDamage.building]: r.buildingDamage.from }
+        : undefined,
+      catapultTarget: r.buildingDamage?.building,
+    });
+  };
   const haulSum = r.haul ? r.haul.wood + r.haul.clay + r.haul.iron : 0;
   // The bar reads as won or lost for whoever is reading: a defender who watched his village fall must not see the
   // winner's green. A report always arrives on one side, so the reader is the side whose village is in it.
@@ -363,6 +292,11 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             {t("reports.retry")}
           </button>
         )}
+        {canSimulate && (
+          <button className="btn" onClick={simulate}>
+            {t("sim.fromReport")}
+          </button>
+        )}
         {canRetry && (
           <button className="btn" onClick={() => sendTemplate("A", tx!, ty!)}>
             {t("reports.sendA")}
@@ -401,7 +335,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </button>
       </div>
       {/* One card: red section bars inside a single frame. */}
-      <div className="report-card">
+      <ReportCard>
         <div
           className={`report-bar ${lost ? "panel-header-loss" : "report-bar-ok"}`}
         >
@@ -432,10 +366,10 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </div>
         <BattleSidePanel
           title={t("reports.attacker")}
-          side={r.attacker}
+          units={r.attacker.units}
+          losses={r.attacker.losses}
           placeLabel={t("reports.origin")}
           village={reportVillageLabel(r.origin)}
-          bot={r.origin.ownerIsBot}
           hidden={r.attackerHidden}
           scroller={(el) => {
             if (el) {
@@ -443,17 +377,17 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
               keepScrollInStep(el);
             }
           }}
-          units={columns}
+          columns={columns}
         />
         {!r.field?.missed && (
           <BattleSidePanel
             title={t("reports.defender")}
-            side={r.defender}
+            units={r.defender.units}
+            losses={r.defender.losses}
             placeLabel={
               r.field ? t("reports.origin") : t("reports.destination")
             }
             village={reportVillageLabel(r.target)}
-            bot={r.target.ownerIsBot}
             hidden={r.defenderHidden}
             hiddenText={
               r.type === "scout" || r.type === "fieldScout"
@@ -466,7 +400,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 keepScrollInStep(el);
               }
             }}
-            units={columns}
+            columns={columns}
           />
         )}
         {/* What the attack actually did: loot, loyalty, and the damage done inside the village. Each is a full-width
@@ -550,7 +484,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             )}
           </div>
         )}
-      </div>
+      </ReportCard>
       {r.scout && r.type === "fieldScout" && (
         <div className="panel p-2 flex flex-wrap gap-2">
           <span className="font-semibold">{t("reports.field.scouted")}</span>

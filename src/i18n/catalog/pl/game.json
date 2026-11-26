@@ -1270,7 +1270,8 @@
     "tab": {
       "send": "Wyślij wojska",
       "commands": "Komendy ({n})",
-      "templates": "Szablony"
+      "templates": "Szablony",
+      "simulate": "Symulator"
     }
   },
   "biome": {
@@ -1427,5 +1428,32 @@
     "hideAutoFarm": "Ukryj auto-farmę",
     "autoFarmHidden": "W drodze jest teraz tylko auto-farma, a jest ona ukryta.",
     "autoFarmBadge": "AF"
+  },
+  "sim": {
+    "hint": "Dwie armie i obrona, na którą trafiają. Wynik pochodzi z tego samego kodu bitwy, który wykonuje prawdziwy atak, więc nic nie jest wysyłane i nic się nie zmienia.",
+    "attacker": "Atakujący",
+    "defender": "Obrońca",
+    "level": "Poziom",
+    "troops": "Wojska",
+    "wall": "Poziom muru",
+    "luck": "Szczęście ({range}% w obie strony)",
+    "morale": "Morale",
+    "catapultLevel": "Poziom: {building}",
+    "run": "Symuluj",
+    "running": "Symulowanie…",
+    "clear": "Wyczyść",
+    "fillVillage": "Wstaw moje wojska",
+    "fillWhichSide": "Po której stronie?",
+    "fillHint": "Wstaw wojska, poziomy Kuźni i mur wioski {village} jako jedną stronę bitwy.",
+    "asAttacker": "Jako atakujący",
+    "asDefender": "Jako obrońca",
+    "failed": "Symulacja nie odpowiedziała. Spróbuj ponownie.",
+    "attackerWon": "Atakujący wygrywa",
+    "defenderWon": "Obrońca wygrywa",
+    "fromReport": "Wstaw do symulatora",
+    "atSimulated": "Symulowana bitwa",
+    "atScout": "Symulowany zwiad",
+    "scoutRule": "Same zwiadowcy: stają przeciw nim tylko zwiadowcy trzymani w wiosce. Szczęście i mur nie mają znaczenia.",
+    "noVillage": "symulowane wojsko"
   }
 }

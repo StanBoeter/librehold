@@ -1,0 +1,227 @@
+package game
+
+import (
+	"math"
+	"testing"
+)
+
+func simInput(attacker, defender UnitCounts, wall int, luck float64) SimInput {
+	return SimInput{
+		Attacker: SimSide{Units: attacker},
+		Defender: SimSide{Units: defender, Wall: wall},
+		Luck:     luck,
+		Morale:   CombatBalance.MoraleVsBarbarian,
+	}
+}
+
+// The simulator must show the same fight a raid would, so a run of it is the real ResolveBattle and not a second
+// implementation of the rules that could quietly disagree with it.
+func TestSimulateBattleMatchesARealBattle(t *testing.T) {
+	attacker, defender := UnitCounts{USword: 300, URam: 10}, UnitCounts{USpear: 200, UArcher: 50}
+	for _, wall := range []int{0, 5, 20} {
+		for _, luck := range []float64{-0.25, 0, 0.25} {
+			got := SimulateBattle(simInput(attacker, defender, wall, luck), "normal")
+			want := ResolveBattle(battleInput(battleOpts{
+				attacker: attacker, defender: defender, wall: wall, luck: luck, lossMode: "normal",
+				rng: func() float64 { return 0 },
+			}))
+			if got.Outcome != want.Outcome || got.AttackerLosses != want.AttackerLosses ||
+				got.DefenderLosses != want.DefenderLosses || got.WallAfter != want.WallAfter ||
+				got.AttackPower != want.AttackPower || got.DefensePower != want.DefensePower {
+				t.Fatalf("wall %d luck %v: simulator %+v, real battle %+v", wall, luck, got.BattleResult, want)
+			}
+		}
+	}
+}
+
+func TestSimulateBattleClampsLuckToTheRealRange(t *testing.T) {
+	att := UnitCounts{USword: 100}
+	def := UnitCounts{USpear: 100}
+	for _, luck := range []float64{99, -99, math.Inf(1)} {
+		got := SimulateBattle(simInput(att, def, 0, luck), "normal")
+		if want := ClampLuck(luck); got.Luck != want {
+			t.Fatalf("luck %v: shown %v, want %v", luck, got.Luck, want)
+		}
+	}
+	if ClampLuck(0.1) != 0.1 {
+		t.Fatal("a luck inside the range was changed")
+	}
+}
+
+// A region of no troops vs no troops is not a battle, and the simulator says so instead of dividing by zero.
+func TestSimulateBattleOfEmptyArmies(t *testing.T) {
+	got := SimulateBattle(simInput(UnitCounts{}, UnitCounts{}, 3, 0), "normal")
+	if got.Outcome != "defenderWon" {
+		t.Fatalf("an empty attack cannot win: %s", got.Outcome)
+	}
+}
+
+// The wall is the defender's, so raising it must never help the attacker.
+func TestSimulateBattleTheWallOnlyHelpsTheDefender(t *testing.T) {
+	att := UnitCounts{USword: 500}
+	def := UnitCounts{USpear: 400}
+	prev := 0.0
+	for wall := 0; wall <= 20; wall++ {
+		got := SimulateBattle(simInput(att, def, wall, 0), "normal")
+		if wall > 0 && got.DefensePower < prev {
+			t.Fatalf("wall %d defends less than wall %d: %v < %v", wall, wall-1, got.DefensePower, prev)
+		}
+		prev = got.DefensePower
+	}
+}
+
+// A defender given no buildings is an ordinary grown village, not a bare level-1 hall: the hall must be high enough
+// for a siege to actually break it, or every catapult run would report nothing and answer the wrong question.
+func TestSimulateBattleDefaultsToAVillageASiegeCanBreak(t *testing.T) {
+	in := simInput(UnitCounts{USword: 20000, UCatapult: 2000}, UnitCounts{USpear: 10}, 0, 0)
+	th := BMain
+	in.CatapultTarget = &th
+	got := SimulateBattle(in, "normal")
+	if got.Outcome != "attackerWon" {
+		t.Fatalf("the siege did not go through: %s", got.Outcome)
+	}
+	if got.BuildingDamage == nil {
+		t.Fatal("a catapult army broke nothing in the default village")
+	}
+	if got.BuildingDamage.Building != BMain {
+		t.Fatalf("aimed at %s, want the town hall it was told to hit", got.BuildingDamage.Building)
+	}
+	if got.BuildingDamage.To >= got.BuildingDamage.From {
+		t.Fatalf("the town hall did not fall: %+v", *got.BuildingDamage)
+	}
+}
+
+// The wall the player typed is the wall that is fought over, whether or not buildings were named.
+func TestSimulateBattleDefaultsTheWallFromTheField(t *testing.T) {
+	in := simInput(UnitCounts{USword: 20000, URam: 2000}, UnitCounts{USpear: 10}, 5, 0)
+	got := SimulateBattle(in, "normal")
+	if got.WallBefore != 5 {
+		t.Fatalf("fought over a wall of %d, want the 5 that was asked for", got.WallBefore)
+	}
+	if got.WallAfter >= got.WallBefore {
+		t.Fatalf("2000 rams left the wall standing: %d -> %d", got.WallBefore, got.WallAfter)
+	}
+}
+
+// Naming the buildings explicitly is still honoured: what the player typed wins over the default.
+func TestSimulateBattleHonoursTheBuildingsItIsGiven(t *testing.T) {
+	in := simInput(UnitCounts{USword: 20000, UCatapult: 2000}, UnitCounts{USpear: 10}, 0, 0)
+	in.Defender.Buildings = Buildings{}
+	in.Defender.Buildings[BMain] = 1 // the floor: nothing to break
+	th := BMain
+	in.CatapultTarget = &th
+	if got := SimulateBattle(in, "normal"); got.BuildingDamage != nil {
+		t.Fatalf("a level-1 hall was broken: %+v", *got.BuildingDamage)
+	}
+}
+
+// A village the player scouted has buildings the default guess does not: a catapult aimed at the barracks must break
+// the barracks, at the level the scouts saw. Without this the answer is always about a guessed town hall.
+func TestSimulateBattleAimsAtTheBuildingsTheVillageHas(t *testing.T) {
+	in := simInput(UnitCounts{USword: 20000, UCatapult: 2000}, UnitCounts{USpear: 10}, 0, 0)
+	in.Defender.Buildings = Buildings{}
+	in.Defender.Buildings[BMain] = 7
+	in.Defender.Buildings[BBarracks] = 9
+	target := BBarracks
+	in.CatapultTarget = &target
+	got := SimulateBattle(in, "normal")
+	if got.BuildingDamage == nil {
+		t.Fatal("a scouted barracks was not hit")
+	}
+	if got.BuildingDamage.Building != BBarracks {
+		t.Fatalf("aimed at %v, want the barracks that was asked for", got.BuildingDamage.Building)
+	}
+	if got.BuildingDamage.From != 9 {
+		t.Fatalf("fought over a level %d barracks, want the level 9 the scouts saw", got.BuildingDamage.From)
+	}
+}
+
+// A report knows one building: the one its catapults broke, and the level it stood at. Sending that alone has to be
+// enough to aim at it again — filling the village in only when all of it was empty left such a village without a
+// town hall, and the named target was silently skipped for the guess that took its place.
+func TestSimulateBattleAimsAtTheOneBuildingAReportNames(t *testing.T) {
+	in := simInput(UnitCounts{USword: 20000, UCatapult: 2000}, UnitCounts{USpear: 10}, 10, 0)
+	in.Defender.Buildings = Buildings{}
+	in.Defender.Buildings[BBarracks] = 9
+	target := BBarracks
+	in.CatapultTarget = &target
+	got := SimulateBattle(in, "normal")
+	if got.BuildingDamage == nil {
+		t.Fatal("the barracks a report named was not hit")
+	}
+	if got.BuildingDamage.Building != BBarracks {
+		t.Fatalf("aimed at %v, want the barracks the report named", got.BuildingDamage.Building)
+	}
+	if got.BuildingDamage.From != 9 {
+		t.Fatalf("fought over a level %d barracks, want the level 9 the report held", got.BuildingDamage.From)
+	}
+	// The rest of the village is still an ordinary one: the wall the player typed and a town hall to aim at.
+	if got.WallBefore != 10 {
+		t.Fatalf("wall %d, want the 10 that was typed", got.WallBefore)
+	}
+}
+
+// Scouts sent alone are a scouting mission, not a battle: the server resolves them by a rule of its own, in which
+// only the scouts kept at home stand against them and neither luck nor the wall is read. The simulator must reach
+// that same rule, or it would answer a scouting with a battle that never happens.
+func TestSimulateBattleResolvesScoutsByTheScoutRule(t *testing.T) {
+	in := simInput(UnitCounts{UScout: 10}, UnitCounts{UScout: 20}, 10, 0)
+	got := SimulateBattle(in, "normal")
+	if got.Kind != "scout" {
+		t.Fatalf("answered a scouting mission as a %q", got.Kind)
+	}
+	// Ten scouts against twenty is a loss, and the spearmen behind them are not part of the question.
+	if got.Outcome != "defenderWon" {
+		t.Fatalf("outcome %s, want the scouts turned back", got.Outcome)
+	}
+	if got.AttackerLosses[UScout] != 10 || got.DefenderLosses.Total() != 0 {
+		t.Fatalf("losses %v / %v, want every scout lost and none of the defenders", got.AttackerLosses, got.DefenderLosses)
+	}
+	// A real battle would have let the wall help; a scouting mission never reads it.
+	if got.WallBefore != got.WallAfter {
+		t.Fatalf("the wall moved from %d to %d, so this was resolved as a battle", got.WallBefore, got.WallAfter)
+	}
+
+	// One swordsman alongside them makes it an ordinary attack again, with the wall in play.
+	mixed := simInput(UnitCounts{UScout: 10, USword: 1}, UnitCounts{UScout: 20}, 10, 0)
+	if mixed := SimulateBattle(mixed, "normal"); mixed.Kind != "battle" {
+		t.Fatalf("a mixed army was resolved as a %q", mixed.Kind)
+	}
+}
+
+// The simulator answers the fight, not the loot: a side carries no resources, so there is never a haul to show.
+func TestSimulateBattleHasNoHaul(t *testing.T) {
+	got := SimulateBattle(simInput(UnitCounts{USword: 500}, UnitCounts{USpear: 10}, 0, 0), "normal")
+	if got.Outcome != "attackerWon" {
+		t.Fatalf("the raid did not go through: %s", got.Outcome)
+	}
+	if SumResources(got.Haul) != 0 || got.HaulCapacity != 0 {
+		t.Fatalf("a simulated battle carried loot: %+v, capacity %v", got.Haul, got.HaulCapacity)
+	}
+}
+
+// Catapults must not shuffle between runs: the player compares two armies and expects the same target each time.
+func TestSimulateBattleIsRepeatable(t *testing.T) {
+	in := simInput(UnitCounts{USword: 50, UCatapult: 40}, UnitCounts{USpear: 5}, 0, 0)
+	first := SimulateBattle(in, "normal")
+	for i := 0; i < 5; i++ {
+		want := SimulateBattle(in, "normal")
+		if first.BuildingDamage == nil || want.BuildingDamage == nil {
+			continue
+		}
+		if *first.BuildingDamage != *want.BuildingDamage {
+			t.Fatalf("run %d broke a different building: %+v vs %+v", i, *first.BuildingDamage, *want.BuildingDamage)
+		}
+	}
+}
+
+// A run that leaves the attacker empty must not be reported as a win, however the defender's wall is set.
+func TestSimulateBattleOverwhelmingDefence(t *testing.T) {
+	got := SimulateBattle(simInput(UnitCounts{USpear: 1}, UnitCounts{USword: 5000}, 20, -0.25), "normal")
+	if got.Outcome != "defenderWon" {
+		t.Fatalf("one spearman beat a full defence: %s", got.Outcome)
+	}
+	if got.AttackerSurvivors.Total() != 0 {
+		t.Fatalf("survivors from a wiped attack: %v", got.AttackerSurvivors)
+	}
+}
