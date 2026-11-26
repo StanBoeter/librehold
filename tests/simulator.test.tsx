@@ -973,6 +973,22 @@ describe("the simulator layout", () => {
     ).toBe(true);
   });
 
+  it("gives a level dropdown room for its digit and its arrow", async () => {
+    await boot();
+    render(<SimulatorTab />);
+    // The pixel skin spends 6px of border and 4px of padding on each side, and a select also has to leave room for
+    // the platform's dropdown arrow. Narrowed to 40px the arrow took the whole content box and the level read as an
+    // empty field on a phone, so the box is never allowed back below 56px.
+    const levels = [
+      ...document.querySelectorAll<HTMLSelectElement>(
+        'select[id^="sim-atk-lvl-"], select[id^="sim-def-lvl-"]',
+      ),
+    ];
+    expect(levels.length).toBe(22);
+    expect(levels.every((el) => /\bw-14\b/.test(el.className))).toBe(true);
+    expect(levels.every((el) => !/\bw-1[0-2]\b/.test(el.className))).toBe(true);
+  });
+
   it("keeps an army past a thousand clear of the number field's spinner", async () => {
     await boot();
     render(<SimulatorTab />);
