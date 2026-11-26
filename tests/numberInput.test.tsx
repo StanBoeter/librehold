@@ -69,14 +69,47 @@ describe("number input", () => {
     expect(field().value).toBe("40");
   });
 
-  it("puts the value back when left empty", () => {
+  it("puts the lowest number it may hold when left empty", () => {
     const seen: number[] = [];
     render(<Harness start={19} seen={seen} />);
     fireEvent.focus(field());
     type("");
     fireEvent.blur(field());
-    expect(field().value).toBe("19");
+    // A field with no floor means 0: a player who deletes a number means to be rid of it, not to have it restored.
+    expect(field().value).toBe("0");
+    expect(seen).toEqual([0]);
+  });
+
+  it("puts the floor back when a field may not hold 0", () => {
+    const seen: number[] = [];
+    render(<Harness start={19} min={1} seen={seen} />);
+    fireEvent.focus(field());
+    type("");
+    fireEvent.blur(field());
+    // A level or a seat count has no meaning at 0, so an empty field means the smallest it may be.
+    expect(field().value).toBe("1");
+    expect(seen).toEqual([1]);
+  });
+
+  it("does not report a value it already holds", () => {
+    const seen: number[] = [];
+    render(<Harness start={0} seen={seen} />);
+    fireEvent.focus(field());
+    type("");
+    fireEvent.blur(field());
+    expect(field().value).toBe("0");
     expect(seen).toEqual([]);
+  });
+
+  it("clears a filled-in army rather than putting it back", () => {
+    // The case that prompted this: "fill in my troops" puts 4000 in, and deleting it left 4000 again.
+    const seen: number[] = [];
+    render(<Harness start={4000} min={0} seen={seen} />);
+    fireEvent.focus(field());
+    type("");
+    fireEvent.blur(field());
+    expect(field().value).toBe("0");
+    expect(seen).toEqual([0]);
   });
 
   it("rounds counts down and keeps fractions where the step allows them", () => {
