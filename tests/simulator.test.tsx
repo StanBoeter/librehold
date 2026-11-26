@@ -966,8 +966,25 @@ describe("the simulator layout", () => {
     ].map((el) => el.className);
     expect(widths.length).toBe(24);
     expect(
-      widths.every((c) => /\bw-16\b/.test(c) && !/\bw-full\b/.test(c)),
+      widths.every(
+        (c) =>
+          /\bw-16\b/.test(c) && /\bsm:w-20\b/.test(c) && !/\bw-full\b/.test(c),
+      ),
     ).toBe(true);
+  });
+
+  it("keeps an army past a thousand clear of the number field's spinner", async () => {
+    await boot();
+    render(<SimulatorTab />);
+    // The digits are right-aligned, so they end where the spinner sits: a wider box alone does not help, the padding
+    // is what moves them off it. Both sides need it, not just the one the player happened to try.
+    const fields = [
+      ...document.querySelectorAll<HTMLInputElement>(
+        'input[id^="sim-atk-"], input[id^="sim-def-"]',
+      ),
+    ];
+    expect(fields.length).toBe(24);
+    expect(fields.every((el) => /\bpr-5\b/.test(el.className))).toBe(true);
   });
 
   it("stacks the settings under the armies, with the answer beside them on a wide screen", async () => {
@@ -977,10 +994,10 @@ describe("the simulator layout", () => {
     fireInput(atk("catapult"), "30");
     const armies = document
       .querySelector('input[id="sim-atk-sword"]')!
-      .closest("div[class*='p-3']")!;
+      .closest("div[class*='grid']")!.parentElement!;
     const settings = document
       .getElementById("sim-wall")!
-      .closest("div[class*='p-3']")!;
+      .closest("div[class*='flex-col']")!;
     // Neither is a framed panel: they are fields on the page.
     expect(armies.className).not.toContain("panel");
     expect(settings.className).not.toContain("panel");
@@ -1008,9 +1025,9 @@ describe("the simulator layout", () => {
 
     // Every setting lives in that one block, not scattered across a four-column strip.
     for (const id of ["sim-morale", "sim-luck", "sim-catapult"]) {
-      expect(document.getElementById(id)!.closest("div[class*='p-3']")).toBe(
-        settings,
-      );
+      expect(
+        document.getElementById(id)!.closest("div[class*='flex-col']"),
+      ).toBe(settings);
     }
   });
 });
@@ -1021,7 +1038,7 @@ describe("the settings panel width", () => {
     render(<SimulatorTab />);
     const settings = document
       .getElementById("sim-wall")!
-      .closest("div[class*='p-3']") as HTMLElement;
+      .closest("div[class*='flex-col']") as HTMLElement;
     // The fields inside are 64px, so the panel has no reason to grow: `w-full` alone let it run the whole width
     // when the settings drop under the armies.
     expect(settings.className).toContain("max-w-[280px]");

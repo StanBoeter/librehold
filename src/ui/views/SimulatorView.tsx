@@ -55,6 +55,16 @@ const ONE = (): Record<UnitId, number> =>
  * field shows the number the run will actually use. Level 1 is the floor of the rule and cannot be broken. */
 const SIM_DEFAULT_MAIN_LEVEL = 5;
 
+/**
+ * A troop field: wide enough for an army past a thousand, and padded clear of the spinner.
+ *
+ * The numbers are right-aligned, so they end exactly where a number input's spinner sits — at 1000 and above the
+ * last digit was drawn underneath it. A wider box alone does not help, because the text grows towards the same edge;
+ * the padding is what moves it off the spinner. The box grows only from `sm`: at `w-20` the four fields on a row cost
+ * enough to push the page sideways on a 320 px phone, and a narrower box that scrolls is better than a page that does.
+ */
+const TROOPS_FIELD = "w-16 sm:w-20 pr-5";
+
 /** A level record from anything partial, clamped to the Smithy's floor so a missing level reads as level 1, not 0. */
 function levelsOf(
   levels: Partial<Record<UnitId, number>> | undefined,
@@ -111,7 +121,7 @@ function LevelField({
       </span>
       <select
         id={`sim-${side === "attacker" ? "atk" : "def"}-lvl-${unit}`}
-        className="field w-12 sm:w-14"
+        className="field w-10 sm:w-14"
         value={value}
         onChange={(e) => onSet(Number(e.target.value))}
       >
@@ -206,7 +216,7 @@ function ArmyFields({
             </span>
             <NumberInput
               id={`sim-atk-${u}`}
-              className="field w-14 sm:w-16 text-right"
+              className={`field text-right ${TROOPS_FIELD}`}
               value={attacker[u]}
               onValue={(n) => onSet("attacker", u, n)}
               min={0}
@@ -227,7 +237,7 @@ function ArmyFields({
                 </span>
                 <NumberInput
                   id={`sim-def-${u}`}
-                  className="field w-14 sm:w-16 text-right"
+                  className={`field text-right ${TROOPS_FIELD}`}
                   value={defender[u]}
                   onValue={(n) => onSet("defender", u, n)}
                   min={0}
@@ -475,7 +485,7 @@ export function SimulatorTab() {
           page, and boxing them only added borders to look past. */}
       <div className="flex flex-col lg:flex-row lg:items-start gap-3">
         <div className="flex flex-col gap-3 min-w-0">
-          <div className="p-3 w-fit shrink-0">
+          <div className="sm:p-3 w-fit shrink-0">
             <ArmyFields
               attacker={attacker}
               defender={defender}
@@ -495,7 +505,7 @@ export function SimulatorTab() {
               }
             />
           </div>
-          <div className="p-3 flex flex-col gap-2 w-full max-w-[280px] shrink-0">
+          <div className="sm:p-3 flex flex-col gap-2 w-full max-w-[280px] shrink-0">
             {scoutingOnly && (
               <p className="text-[12px] text-muted">{t("sim.scoutRule")}</p>
             )}
@@ -612,7 +622,7 @@ export function SimulatorTab() {
           </div>
           {/* The button closes the column of fields it acts on, rather than sitting at the top of the answer column
               where it floated beside the army headers. Fill the battle in, then press. */}
-          <div className="p-3 pt-0">
+          <div className="sm:p-3 sm:pt-0">
             <button
               type="button"
               className="btn btn-primary"
