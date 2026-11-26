@@ -15,6 +15,9 @@ export type ViewId =
   | "settings";
 export type AnimationMode = "full" | "limited" | "off";
 
+/** The two halves of the inbox: the reports a player reads, and the auto-farm's raids. */
+export type ReportsTab = "manual" | "autoFarm";
+
 export interface RallyPrefill {
   x: number;
   y: number;
@@ -115,9 +118,12 @@ interface UiStore {
   reportsVillageFilter: string | null;
   setReportsVillageFilter: (villageId: string | null) => void;
   openReportsFor: (villageId: string | null) => void;
-  /** Reports view: leave out the auto-farm's reports; unlike the village filter it holds while the game is open. */
-  reportsHideAutoFarm: boolean;
-  setReportsHideAutoFarm: (hide: boolean) => void;
+  /**
+   * Reports view: which half of the inbox is shown. The auto-farm writes a report per raid, so it is kept apart from
+   * the reports a player reads rather than mixed in with them. Holds while the game is open, unlike the village filter.
+   */
+  reportsTab: ReportsTab;
+  setReportsTab: (tab: ReportsTab) => void;
   /** Report to open on entering the Reports view (one-off). */
   reportToOpen: string | null;
   openReport: (reportId: string) => void;
@@ -174,8 +180,8 @@ export const useUiStore = create<UiStore>()((set, get) => ({
     set({ reportsVillageFilter }),
   openReportsFor: (reportsVillageFilter) =>
     set({ reportsVillageFilter, view: "reports" }),
-  reportsHideAutoFarm: false,
-  setReportsHideAutoFarm: (reportsHideAutoFarm) => set({ reportsHideAutoFarm }),
+  reportsTab: "manual",
+  setReportsTab: (reportsTab) => set({ reportsTab }),
   reportToOpen: null,
   openReport: (reportToOpen) => set({ reportToOpen, view: "reports" }),
   consumeReportToOpen: () => {

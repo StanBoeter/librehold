@@ -255,18 +255,43 @@ func MarkReportsRead(w World, actor PlayerID, ids []string, read bool) error {
 	return nil
 }
 
-func reportIDs(w World, actor PlayerID, skipAutoFarm bool, keep func(*Report) bool) []string {
+// ReportScope says which half of the inbox a bulk action covers.
+type ReportScope string
+
+const (
+	// ReportScopeAll is every report, the auto-farm's raids included.
+	ReportScopeAll ReportScope = "all"
+	// ReportScopeManual is everything but the auto-farm's raids.
+	ReportScopeManual ReportScope = "manual"
+	// ReportScopeAutoFarm is the auto-farm's raids alone, so a player can clear their own tab without touching
+	// the reports they read.
+	ReportScopeAutoFarm ReportScope = "autoFarm"
+)
+
+// covers says whether a bulk action reaches this report.
+func (s ReportScope) covers(r *Report) bool {
+	switch s {
+	case ReportScopeAutoFarm:
+		return r.AutoFarm
+	case ReportScopeManual:
+		return !r.AutoFarm
+	default:
+		return true
+	}
+}
+
+func reportIDs(w World, actor PlayerID, scope ReportScope, keep func(*Report) bool) []string {
 	var ids []string
 	for _, r := range w.Reports(actor, allReports, 0) {
-		if keep(r) && !(skipAutoFarm && r.AutoFarm) {
+		if keep(r) && scope.covers(r) {
 			ids = append(ids, r.ID)
 		}
 	}
 	return ids
 }
 
-func MarkAllReportsRead(w World, actor PlayerID, skipAutoFarm bool) error {
-	w.SetReportRead(actor, reportIDs(w, actor, skipAutoFarm, func(r *Report) bool { return !r.Read }), true)
+func MarkAllReportsRead(w World, actor PlayerID, scope ReportScope) error {
+	w.SetReportRead(actor, reportIDs(w, actor, scope, func(r *Report) bool { return !r.Read }), true)
 	return nil
 }
 
@@ -275,8 +300,8 @@ func DeleteReport(w World, actor PlayerID, id string) error {
 	return nil
 }
 
-func DeleteReadReports(w World, actor PlayerID, skipAutoFarm bool) error {
-	w.DeleteReports(actor, reportIDs(w, actor, skipAutoFarm, func(r *Report) bool { return r.Read }))
+func DeleteReadReports(w World, actor PlayerID, scope ReportScope) error {
+	w.DeleteReports(actor, reportIDs(w, actor, scope, func(r *Report) bool { return r.Read }))
 	return nil
 }
 

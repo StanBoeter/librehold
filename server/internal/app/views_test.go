@@ -452,14 +452,17 @@ func TestViewsHaveNoNullsForFreshPlayer(t *testing.T) {
 	}
 }
 
-// The inbox header counts against CombatBalance.MaxReports, so one call must be able to return every report kept.
+// The inbox header counts against both report budgets, so one call must be able to return every report kept.
 func TestReportsReturnsTheWholeInbox(t *testing.T) {
 	d := newDuel(t)
 	ctx := context.Background()
-	kept := game.CombatBalance.MaxReports
+	kept := game.TotalReportsKept()
 	err := d.worlds.Run(ctx, d.world, func(w app.WorldTx) error {
-		for i := range kept + 10 {
+		for i := range game.CombatBalance.MaxReports + 10 {
 			w.AddReport("h1", &game.Report{Type: "attack", Time: int64(i + 1)})
+		}
+		for i := range game.CombatBalance.MaxAutoFarmReports + 10 {
+			w.AddReport("h1", &game.Report{Type: "attack", Time: int64(i + 1), AutoFarm: true})
 		}
 		return nil
 	})

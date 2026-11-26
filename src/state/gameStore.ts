@@ -9,6 +9,7 @@ import type { FarmTargetList } from "../engine/farm";
 import { humanVillageIds } from "../engine/players";
 import { accrue } from "../engine/resources";
 import { COMBAT_BALANCE } from "../data/units.data";
+import type { ReportScope } from "../engine/reports";
 import { settleRecruitQueues } from "../engine/units";
 import type {
   BuildingId,
@@ -218,8 +219,9 @@ export interface GameStore {
   /** Stores the player's language on the account; the switch itself already changed it locally. */
   setLocale: (locale: Locale) => void;
   markReportRead: (id: string, read?: boolean) => Promise<string | null>;
-  markAllReportsRead: (skipAutoFarm: boolean) => Promise<string | null>;
-  deleteReadReports: (skipAutoFarm: boolean) => Promise<string | null>;
+  /** Marks every report in one half of the inbox read: the auto-farm's raids, or everything else. */
+  markAllReportsRead: (scope: ReportScope) => Promise<string | null>;
+  deleteReadReports: (scope: ReportScope) => Promise<string | null>;
   deleteReport: (id: string) => Promise<string | null>;
 }
 
@@ -289,8 +291,9 @@ function coalesced(load: () => Promise<void>): () => Promise<void> {
   };
 }
 
-/** The whole inbox: the server keeps a player's newest COMBAT_BALANCE.maxReports reports and sends that many at once. */
-const REPORTS_PATH = `/reports?limit=${COMBAT_BALANCE.maxReports}`;
+/** The whole inbox: the server keeps a player's newest COMBAT_BALANCE.maxReports reports, plus a separate budget for
+ * the auto-farm's raids, and sends them all at once. */
+const REPORTS_PATH = `/reports?limit=${COMBAT_BALANCE.maxReports + COMBAT_BALANCE.maxAutoFarmReports}`;
 
 /** A new report only changes the top of the inbox, so the refresh after one reads just this many. */
 const NEWEST_REPORTS = 100;
@@ -301,6 +304,20 @@ const NEWEST_REPORTS = 100;
  */
 function compareReportIds(a: string, b: string): number {
   return a.length - b.length || (a < b ? -1 : a > b ? 1 : 0);
+}
+
+/**
+ * The most reports of each kind the server keeps, applied to a list in server order (newest first). The two budgets
+ * are separate on the server, so they are separate here too: a night of auto-farm raids never costs a report the
+ * player reads.
+ */
+export function trimReports(reports: Report[]): Report[] {
+  let autoFarm = 0;
+  let manual = 0;
+  return reports.filter((r) => {
+    if (r.autoFarm) return ++autoFarm <= COMBAT_BALANCE.maxAutoFarmReports;
+    return ++manual <= COMBAT_BALANCE.maxReports;
+  });
 }
 
 /**
@@ -320,7 +337,7 @@ export function mergeNewestReports(
   const oldest = newest.at(-1);
   if (!oldest || !newestHeld || !inPage.has(newestHeld.id)) return null;
   const older = held.filter((r) => compareReportIds(r.id, oldest.id) < 0);
-  return [...newest, ...older].slice(0, COMBAT_BALANCE.maxReports);
+  return trimReports([...newest, ...older]);
 }
 
 function worldPath(path: string): string {
@@ -905,10 +922,10 @@ export const useGameStore = create<GameStore>()(
         runThenReports("mark-reports-read", { ids: [id], read }, (reports) =>
           reports.map((r) => (r.id === id ? { ...r, read } : r)),
         ),
-      markAllReportsRead: (skipAutoFarm) =>
-        runThenReports("mark-all-reports-read", { skipAutoFarm }),
-      deleteReadReports: (skipAutoFarm) =>
-        runThenReports("delete-read-reports", { skipAutoFarm }),
+      markAllReportsRead: (scope) =>
+        runThenReports("mark-all-reports-read", { scope }),
+      deleteReadReports: (scope) =>
+        runThenReports("delete-read-reports", { scope }),
       deleteReport: (id) =>
         runThenReports("delete-report", { id }, (reports) =>
           reports.filter((r) => r.id !== id),

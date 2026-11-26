@@ -1,5 +1,20 @@
 import type { GameState, Report, ReportVillage } from "./types";
 
+/**
+ * The half of the inbox a bulk action covers. The auto-farm writes a report per raid, so the server keeps its raids
+ * in a budget of their own; the two tabs map onto these scopes so clearing one never touches the other.
+ */
+export type ReportScope = "all" | "manual" | "autoFarm";
+
+/** The reports of one tab: the auto-farm's raids, or everything else. */
+export function reportsInTab(
+  reports: Report[],
+  tab: "manual" | "autoFarm",
+): Report[] {
+  const autoFarm = tab === "autoFarm";
+  return reports.filter((r) => !!r.autoFarm === autoFarm);
+}
+
 export function unreadReports(state: GameState): number {
   let n = 0;
   for (const r of state.reports) if (!r.read && !r.autoFarm) n++;

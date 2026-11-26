@@ -507,10 +507,10 @@ func TestReportManagement(t *testing.T) {
 	if err := game.MarkReportsRead(w, "h1", []string{reps[0].ID}, true); err != nil || !reps[0].Read || reps[1].Read {
 		t.Fatal("mark one")
 	}
-	if err := game.DeleteReadReports(w, "h1", false); err != nil || len(w.Reports("h1", 1<<62, 0)) != 2 {
+	if err := game.DeleteReadReports(w, "h1", game.ReportScopeAll); err != nil || len(w.Reports("h1", 1<<62, 0)) != 2 {
 		t.Fatal("delete read")
 	}
-	if err := game.MarkAllReportsRead(w, "h1", false); err != nil {
+	if err := game.MarkAllReportsRead(w, "h1", game.ReportScopeAll); err != nil {
 		t.Fatal(err)
 	}
 	for _, r := range w.Reports("h1", 1<<62, 0) {
@@ -531,7 +531,7 @@ func TestBulkReportActionsCanLeaveAutoFarmReports(t *testing.T) {
 	w, _ := gametest.NewTestWorld(101)
 	w.AddReport("h1", &game.Report{Type: "attack", Time: w.Now()})
 	w.AddReport("h1", &game.Report{Type: "attack", Time: w.Now(), AutoFarm: true})
-	if err := game.MarkAllReportsRead(w, "h1", true); err != nil {
+	if err := game.MarkAllReportsRead(w, "h1", game.ReportScopeManual); err != nil {
 		t.Fatal(err)
 	}
 	for _, r := range w.ReportsOf("h1") {
@@ -539,17 +539,89 @@ func TestBulkReportActionsCanLeaveAutoFarmReports(t *testing.T) {
 			t.Fatalf("autoFarm %v read %v", r.AutoFarm, r.Read)
 		}
 	}
-	if err := game.MarkAllReportsRead(w, "h1", false); err != nil {
+	if err := game.MarkAllReportsRead(w, "h1", game.ReportScopeAll); err != nil {
 		t.Fatal(err)
 	}
-	if err := game.DeleteReadReports(w, "h1", true); err != nil {
+	if err := game.DeleteReadReports(w, "h1", game.ReportScopeManual); err != nil {
 		t.Fatal(err)
 	}
 	if rs := w.ReportsOf("h1"); len(rs) != 1 || !rs[0].AutoFarm {
 		t.Fatalf("left %+v", rs)
 	}
-	if err := game.DeleteReadReports(w, "h1", false); err != nil || len(w.ReportsOf("h1")) != 0 {
+	if err := game.DeleteReadReports(w, "h1", game.ReportScopeAll); err != nil || len(w.ReportsOf("h1")) != 0 {
 		t.Fatal("the auto-farm's read report kept")
+	}
+}
+
+// A raid the auto-farm really sends, landed through battle resolution, is tagged AutoFarm and so lands in the
+// auto-farm's own budget: a night of farming can never push out a report the player reads.
+func TestAutoFarmRaidsFillOnlyTheirOwnBudget(t *testing.T) {
+	w, v := farmSetup(t)
+	v.Units[game.ULightCav] = 200000 // enough that the raids never run dry
+	startAutoFarm(t, w, v)
+	w.AddReport("h1", &game.Report{Type: "attack", Time: w.Now()})
+	manualID := w.ReportsOf("h1")[len(w.ReportsOf("h1"))-1].ID
+
+	keep := game.CombatBalance.MaxAutoFarmReports
+	sent := 0
+	for range 40 {
+		sent += game.AutoFarmTick(w, "h1", v.ID)
+		advanceTouch(t, w, v, w.Now()+6*60*60*1000) // let every raid land and come home
+	}
+
+	manual, auto, found := 0, 0, false
+	for _, r := range w.ReportsOf("h1") {
+		if r.AutoFarm {
+			auto++
+			continue
+		}
+		manual++
+		if r.ID == manualID {
+			found = true
+		}
+	}
+	// The raids filled their own budget and no more: a shared one would have kept MaxReports of them.
+	if sent <= keep {
+		t.Fatalf("only %d raids were sent, so eviction was never exercised (budget %d)", sent, keep)
+	}
+	if auto != keep {
+		t.Fatalf("kept %d auto-farm reports, want exactly the budget of %d", auto, keep)
+	}
+	if !found || manual != 1 {
+		t.Fatalf("kept %d manual reports (the one the player reads: %v), want it to survive", manual, found)
+	}
+}
+
+// The Auto-farm tab clears its own half: a player emptying it must not lose a report from the Manual tab, and the
+// other way round.
+func TestBulkReportActionsCanTargetTheAutoFarmAlone(t *testing.T) {
+	w, _ := gametest.NewTestWorld(101)
+	w.AddReport("h1", &game.Report{Type: "attack", Time: w.Now()})
+	w.AddReport("h1", &game.Report{Type: "attack", Time: w.Now(), AutoFarm: true})
+
+	if err := game.MarkAllReportsRead(w, "h1", game.ReportScopeAutoFarm); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range w.ReportsOf("h1") {
+		if r.Read != r.AutoFarm {
+			t.Fatalf("autoFarm %v read %v", r.AutoFarm, r.Read)
+		}
+	}
+	if err := game.DeleteReadReports(w, "h1", game.ReportScopeAutoFarm); err != nil {
+		t.Fatal(err)
+	}
+	if rs := w.ReportsOf("h1"); len(rs) != 1 || rs[0].AutoFarm {
+		t.Fatalf("the auto-farm's raid was not the only thing cleared: %+v", rs)
+	}
+	// The manual report is unread, so a delete-read leaves it: the manual scope reaches only manual reports.
+	if err := game.DeleteReadReports(w, "h1", game.ReportScopeManual); err != nil || len(w.ReportsOf("h1")) != 1 {
+		t.Fatal("delete-read removed an unread report")
+	}
+	if err := game.MarkAllReportsRead(w, "h1", game.ReportScopeManual); err != nil {
+		t.Fatal(err)
+	}
+	if err := game.DeleteReadReports(w, "h1", game.ReportScopeManual); err != nil || len(w.ReportsOf("h1")) != 0 {
+		t.Fatal("the manual report survived a manual delete")
 	}
 }
 

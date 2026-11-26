@@ -6,6 +6,7 @@ import type {
   MapTile,
   MeView,
 } from "../src/net/types";
+import { COMBAT_BALANCE } from "../src/data/units.data";
 import { fixtureOf, stateFixture } from "./helpers";
 
 export type StubRoute = (body: unknown) => { status: number; body?: unknown };
@@ -91,7 +92,9 @@ export function stubServer(g: GameState, opts: StubOptions = {}): string[] {
       ...(opts.hosted ? { hosted: opts.hosted } : {}),
       ...(opts.gameNumber ? { gameNumber: opts.gameNumber } : {}),
     }),
-    [`${base}/reports?limit=500`]: () => [...g.reports].reverse(),
+    // The whole inbox: both report budgets together, as the store asks for it at boot.
+    [`${base}/reports?limit=${COMBAT_BALANCE.maxReports + COMBAT_BALANCE.maxAutoFarmReports}`]:
+      () => [...g.reports].reverse(),
     [`${base}/reports?limit=100`]: () => [...g.reports].reverse().slice(0, 100),
     [`${base}/news?limit=50`]: () => [...g.news].reverse(),
     [`${base}/ranking?tab=points`]: playerRows,

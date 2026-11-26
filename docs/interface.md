@@ -38,6 +38,23 @@ checks the fonts.
 - Green badges = building level (a click highlights the row in the table). A building that is not built has only a click area (a construction site while it is being built).
 - Right sidebar: Production (per hour), Units (troops in the village, "» recruit"), Current parameters. The building table shows only buildings whose requirements are met; when resources are short, the Cost column shows the time until they are gathered.
 
+## Reports
+
+- **Two halves, not one inbox.** The Reports view has two tabs: **Manual** (open by default) and **Auto-farm**. The
+  auto-farm writes a report per raid — up to `FARM_BALANCE.autoFarmMaxPerTick` every `autoFarmIntervalMs` per village,
+  which is 80 an hour from one village — so a single shared inbox was filled by a night of farming and evicted the
+  reports a player actually reads, an attack that landed while they slept among them.
+- **Separate budgets.** Each kind is capped on its own: `COMBAT_BALANCE.maxReports` for manual reports and
+  `COMBAT_BALANCE.maxAutoFarmReports` for the auto-farm's raids (`ReportKeep` in `server/internal/game/reports.go`).
+  Each pool evicts only from itself, so a flood of raids can never cost a manual report. Both stores enforce it: the
+  Postgres prune in `flushRecords` (`server/internal/adapters/postgres/uow_records.go`) splits on `data->>'autoFarm'`,
+  and `MemWorld.AddReport` counts each kind.
+- **Bulk actions follow the tab.** "Mark all as read" and "Delete read" carry a `scope` (`all` / `manual` / `autoFarm`)
+  in the `mark-all-reports-read` and `delete-read-reports` orders, so emptying one tab never touches the other. The
+  older `skipAutoFarm` field is still read, so a replayed action log behaves as it did.
+- **The unread counter skips the auto-farm.** `PlayerState.unreadReports` counts only manual reports, so a night of
+  farming does not light the Reports tab.
+
 ## Map — village menu and sizes
 
 - Clicking a village on the map opens a menu next to the tile (Esc closes it). Own village: resources, population, construction, troops, incoming attacks, Village/Switch/Support/Reports/More… buttons, plus collapsed Quick build and Quick recruit sections. Quick build queues the next level of an available building; Quick recruit orders units from recruitment buildings already built in that village. Both use the same client-side checks and server orders as the village screens. Foreign village: distance and march times, the latest intel (only what the player got by scouting/attacking), the last attack, the threat from that village, our commands on the way, the 3 latest reports (a click opens them) and "all →" (Reports filtered by the village), Attack/Support/Scout/Template A/More… buttons.

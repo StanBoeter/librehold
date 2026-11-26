@@ -268,8 +268,22 @@ type readIn struct {
 
 func (in *readIn) validate() error { return checkIDs("ids", in.IDs) }
 
+// allReportsIn picks the half of the inbox a bulk action covers. `scope` is the current field; `skipAutoFarm` is
+// what the order carried before the two tabs existed, and a replayed action log still holds it, so both are read.
 type allReportsIn struct {
-	SkipAutoFarm bool `json:"skipAutoFarm"`
+	Scope        game.ReportScope `json:"scope"`
+	SkipAutoFarm bool             `json:"skipAutoFarm"`
+}
+
+func (in *allReportsIn) scope() game.ReportScope {
+	switch {
+	case in.Scope == game.ReportScopeAutoFarm || in.Scope == game.ReportScopeManual:
+		return in.Scope
+	case in.SkipAutoFarm:
+		return game.ReportScopeManual
+	default:
+		return game.ReportScopeAll
+	}
 }
 
 type groupIn game.VillageGroup
@@ -415,13 +429,13 @@ var orders = map[string]orderSpec{
 		return game.MarkReportsRead(w, me, in.IDs, in.Read)
 	}),
 	"mark-all-reports-read": order(func(w WorldTx, me game.PlayerID, in allReportsIn) error {
-		return game.MarkAllReportsRead(w, me, in.SkipAutoFarm)
+		return game.MarkAllReportsRead(w, me, in.scope())
 	}),
 	"delete-report": order(func(w WorldTx, me game.PlayerID, in idIn) error {
 		return game.DeleteReport(w, me, in.ID)
 	}),
 	"delete-read-reports": order(func(w WorldTx, me game.PlayerID, in allReportsIn) error {
-		return game.DeleteReadReports(w, me, in.SkipAutoFarm)
+		return game.DeleteReadReports(w, me, in.scope())
 	}),
 	"claim-quest": order(func(w WorldTx, me game.PlayerID, in claimIn) error {
 		_, err := game.ClaimQuest(w, me, in.QuestID, in.VillageID)

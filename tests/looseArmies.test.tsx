@@ -373,7 +373,7 @@ describe("the report of an army with no home", () => {
     g.reports.push(r);
     useUiStore.setState({
       view: "reports",
-      reportsHideAutoFarm: false,
+      reportsTab: "manual",
       reportsVillageFilter: null,
     });
     stubServer(g, { me: "h7" });

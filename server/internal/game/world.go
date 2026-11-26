@@ -38,7 +38,7 @@ type World interface {
 	IsScheduled(key string) bool
 	ScheduledAt(key string) (int64, bool)
 
-	AddReport(recipient PlayerID, r *Report)                       // assigns r.ID = NewID("rep"); keeps the newest CombatBalance.MaxReports per recipient
+	AddReport(recipient PlayerID, r *Report)                       // assigns r.ID = NewID("rep"); keeps the newest ReportKeep(r) per recipient
 	Reports(recipient PlayerID, before int64, limit int) []*Report // Time < before, newest first; limit ≤ 0 = all
 	SetReportRead(recipient PlayerID, ids []string, read bool)
 	DeleteReports(recipient PlayerID, ids []string)

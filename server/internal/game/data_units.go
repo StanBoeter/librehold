@@ -56,7 +56,13 @@ var CombatBalance = struct {
 	CatapultFactor        float64 `json:"catapultFactor"`
 	ScoutDefenseFactor    float64 `json:"scoutDefenseFactor"`
 	MaxReports            int     `json:"maxReports"`
-}{0.25, 1.0, 0, 20, 1.037, 1.5, 0.5, 0.27, 0.7, 0.39, 0.8, 0.8, 2, 500}
+	// MaxAutoFarmReports is a second budget, kept apart from MaxReports. The auto-farm writes a report per raid
+	// (up to AutoFarmMaxPerTick every AutoFarmIntervalMs per village, so 80 an hour from one village), which would
+	// otherwise fill a single shared inbox within a night and evict the reports a player actually reads — an attack
+	// that landed while they slept among them. Evicting only from its own pool means a night of farming can never
+	// cost a manual report.
+	MaxAutoFarmReports int `json:"maxAutoFarmReports"`
+}{0.25, 1.0, 0, 20, 1.037, 1.5, 0.5, 0.27, 0.7, 0.39, 0.8, 0.8, 2, 500, 250}
 
 var UnitBalance = struct {
 	RecruitTimeFactor          float64   `json:"recruitTimeFactor"`

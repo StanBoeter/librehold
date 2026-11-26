@@ -508,11 +508,36 @@ func (w *MemWorld) NextDue() (int64, bool) {
 func (w *MemWorld) AddReport(recipient game.PlayerID, r *game.Report) {
 	r.ID = w.NewID("rep")
 	list := append(w.reports[recipient], r)
-	if over := len(list) - game.CombatBalance.MaxReports; over > 0 {
-		list = append([]*game.Report(nil), list[over:]...)
+	// The auto-farm's raids are evicted from their own budget, never at the cost of a report the player reads.
+	if over := countReports(list, r.AutoFarm) - game.ReportKeep(r); over > 0 {
+		list = append([]*game.Report(nil), dropOldestReports(list, r.AutoFarm, over)...)
 	}
 	w.reports[recipient] = list
 	w.touched[recipient] = true
+}
+
+// countReports counts the reports of one kind: the auto-farm's raids, or every other report.
+func countReports(list []*game.Report, autoFarm bool) int {
+	n := 0
+	for _, r := range list {
+		if r.AutoFarm == autoFarm {
+			n++
+		}
+	}
+	return n
+}
+
+// dropOldestReports removes the first n reports of one kind, keeping the order of the rest.
+func dropOldestReports(list []*game.Report, autoFarm bool, n int) []*game.Report {
+	out := make([]*game.Report, 0, len(list)-n)
+	for _, r := range list {
+		if n > 0 && r.AutoFarm == autoFarm {
+			n--
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 func (w *MemWorld) Reports(recipient game.PlayerID, before int64, limit int) []*game.Report {

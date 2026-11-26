@@ -51,3 +51,17 @@ func armyVillage(w World, c *Command, villageID string) ReportVillage {
 	}
 	return rv
 }
+
+// ReportKeep is how many reports of one kind a player keeps. The auto-farm's raids have a budget of their own: it
+// writes one report per raid, so a single shared inbox would be filled by a night of farming and evict the reports
+// the player actually reads, an attack that landed while they slept among them. Each pool evicts only from itself.
+func ReportKeep(r *Report) int {
+	if r.AutoFarm {
+		return CombatBalance.MaxAutoFarmReports
+	}
+	return CombatBalance.MaxReports
+}
+
+// TotalReportsKept is the most reports one player can hold: both budgets together. Reading a whole inbox at once
+// takes this many.
+func TotalReportsKept() int { return CombatBalance.MaxReports + CombatBalance.MaxAutoFarmReports }

@@ -298,9 +298,19 @@ func (u *uow) flushRecords(b *pgx.Batch) {
 		recipients = append(recipients, r)
 	}
 	slices.Sort(recipients)
+	// Two budgets, each evicting only from itself: the auto-farm's raids can never push out a report the player
+	// reads. `autoFarm` is written only when true (omitempty), so its absence marks every other report.
 	for _, r := range recipients {
-		b.Queue(`delete from reports where world_id = $1 and recipient_id = $2 and id not in (
-			select id from reports where world_id = $1 and recipient_id = $2 order by `+newestFirst+` limit $3)`,
+		b.Queue(`delete from reports where world_id = $1 and recipient_id = $2
+			and data->>'autoFarm' = 'true' and id not in (
+			select id from reports where world_id = $1 and recipient_id = $2 and data->>'autoFarm' = 'true'
+			order by `+newestFirst+` limit $3)`,
+			wid, r, game.CombatBalance.MaxAutoFarmReports)
+		b.Queue(`delete from reports where world_id = $1 and recipient_id = $2
+			and data->>'autoFarm' is distinct from 'true' and id not in (
+			select id from reports where world_id = $1 and recipient_id = $2
+				and data->>'autoFarm' is distinct from 'true'
+			order by `+newestFirst+` limit $3)`,
 			wid, r, game.CombatBalance.MaxReports)
 	}
 	changes(u.intel, func(k intelKey, _ *game.Intel, data []byte) {

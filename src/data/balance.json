@@ -391,6 +391,7 @@
     "catapultFactor": 0.8,
     "lossExponent": 1.5,
     "luckRange": 0.25,
+    "maxAutoFarmReports": 250,
     "maxReports": 500,
     "moraleVsBarbarian": 1,
     "reducedLossFactor": 0.5,

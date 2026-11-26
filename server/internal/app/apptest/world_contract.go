@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"reflect"
 	"slices"
 	"strconv"
@@ -1308,6 +1309,43 @@ func RunWorldStoreContract(t *testing.T, newBackend func(t *testing.T) WorldBack
 		updates := subscribeUpdates(t, b.Updates)
 		Advance(t, s, id, 1000, arrives-1, 50)
 		expectTopics(t, updates, map[game.PlayerID]string{"h3": app.TopicState})
+	})
+
+	// The auto-farm writes a report per raid, so a single shared inbox was filled by a night of farming and evicted
+	// the reports a player actually reads, an attack that landed while they slept among them. Each kind now has its
+	// own budget, and this pins that to what both stores actually keep.
+	t.Run("TestAutoFarmReportsCannotEvictAManualReport", func(t *testing.T) {
+		s := newStore(t)
+		id := createWorld(t, s, 0)
+		joinTwo(t, s, id)
+		var manual string
+		run(t, s, id, func(w app.WorldTx) error {
+			w.AddReport("h1", &game.Report{Type: "attack", Time: w.Now()})
+			for _, r := range w.Reports("h1", math.MaxInt64, 0) {
+				manual = r.ID
+			}
+			for range game.CombatBalance.MaxAutoFarmReports + 20 {
+				w.AddReport("h1", &game.Report{Type: "attack", Time: w.Now(), AutoFarm: true})
+			}
+			return nil
+		})
+		read(t, s, id, func(w app.WorldTx) {
+			var autoFarm int
+			found := false
+			for _, r := range w.Reports("h1", math.MaxInt64, 0) {
+				if r.AutoFarm {
+					autoFarm++
+				} else if r.ID == manual {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatal("the manual report was evicted by the auto-farm's raids")
+			}
+			if autoFarm != game.CombatBalance.MaxAutoFarmReports {
+				t.Fatalf("kept %d auto-farm reports, want %d", autoFarm, game.CombatBalance.MaxAutoFarmReports)
+			}
+		})
 	})
 }
 

@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { navigation } from "../src/net/api";
 import type { LiveMessage, PlayerState } from "../src/net/types";
 import { HUMAN_ID, type Report } from "../src/engine/types";
-import { mergeNewestReports, useGameStore } from "../src/state/gameStore";
+import {
+  mergeNewestReports,
+  trimReports,
+  useGameStore,
+} from "../src/state/gameStore";
+import { COMBAT_BALANCE } from "../src/data/units.data";
 import { newTestGame, stateFixture } from "./helpers";
 
 class FakeSocket {
@@ -22,6 +27,9 @@ class FakeSocket {
 type Handler = (body: unknown) => { status: number; body?: unknown };
 let routes: Record<string, Handler>;
 let calls: { key: string; body: unknown }[];
+/** The whole-inbox request the store makes at boot: both report budgets together. */
+const INBOX = `reports?limit=${COMBAT_BALANCE.maxReports + COMBAT_BALANCE.maxAutoFarmReports}`;
+
 let fixture: PlayerState;
 
 beforeEach(() => {
@@ -30,7 +38,7 @@ beforeEach(() => {
   calls = [];
   routes = {
     "GET /api/v1/worlds/3/state": () => ({ status: 200, body: fixture }),
-    "GET /api/v1/worlds/3/reports?limit=500": () => ({ status: 200, body: [] }),
+    [`GET /api/v1/worlds/3/${INBOX}`]: () => ({ status: 200, body: [] }),
     "GET /api/v1/worlds/3/news?limit=50": () => ({ status: 200, body: [] }),
   };
   FakeSocket.all = [];
@@ -163,7 +171,7 @@ describe("game store backed by the server", () => {
   });
 
   it("a new report merges the newest page into the whole inbox loaded at boot", async () => {
-    routes["GET /api/v1/worlds/3/reports?limit=500"] = () => ({
+    routes[`GET /api/v1/worlds/3/${INBOX}`] = () => ({
       status: 200,
       body: burst(150, 1),
     });
@@ -185,7 +193,7 @@ describe("game store backed by the server", () => {
   });
 
   it("marking one report read changes it in place; marking all reads the whole inbox again", async () => {
-    routes["GET /api/v1/worlds/3/reports?limit=500"] = () => ({
+    routes[`GET /api/v1/worlds/3/${INBOX}`] = () => ({
       status: 200,
       body: [report("r2", 2), report("r1", 1)],
     });
@@ -207,10 +215,10 @@ describe("game store backed by the server", () => {
       "POST /api/v1/worlds/3/orders/mark-reports-read",
     ]);
     calls = [];
-    await useGameStore.getState().markAllReportsRead(false);
+    await useGameStore.getState().markAllReportsRead("all");
     await vi.waitFor(() =>
       expect(calls.map((c) => c.key)).toContain(
-        "GET /api/v1/worlds/3/reports?limit=500",
+        `GET /api/v1/worlds/3/${INBOX}`,
       ),
     );
   });
@@ -331,5 +339,38 @@ describe("mergeNewestReports", () => {
         3,
       ),
     ).toBeNull();
+  });
+});
+
+describe("trimReports", () => {
+  const farm = (id: string) =>
+    ({ ...report(id, 1), autoFarm: true }) as unknown as Report;
+  const manualCap = COMBAT_BALANCE.maxReports;
+  const farmCap = COMBAT_BALANCE.maxAutoFarmReports;
+
+  it("keeps each kind within its own budget, newest first", () => {
+    const manual = Array.from({ length: manualCap + 5 }, (_, i) =>
+      report(`m${manualCap + 5 - i}`, 1),
+    );
+    const raids = Array.from({ length: farmCap + 5 }, (_, i) =>
+      farm(`a${farmCap + 5 - i}`),
+    );
+    // Newest first, the way the server sends them: the raids arrive on top.
+    const kept = trimReports([...raids, ...manual]);
+    expect(kept.filter((r) => r.autoFarm)).toHaveLength(farmCap);
+    expect(kept.filter((r) => !r.autoFarm)).toHaveLength(manualCap);
+    // The oldest five of each are the ones dropped.
+    expect(kept.some((r) => r.id === "a5")).toBe(false);
+    expect(kept.some((r) => r.id === "a6")).toBe(true);
+    expect(kept.some((r) => r.id === "m5")).toBe(false);
+    expect(kept.some((r) => r.id === "m6")).toBe(true);
+  });
+
+  it("never drops a manual report because of a flood of raids", () => {
+    const manual = [report("real", 1)];
+    const raids = Array.from({ length: farmCap * 3 }, (_, i) => farm(`a${i}`));
+    const kept = trimReports([...raids, ...manual]);
+    expect(kept.map((r) => r.id)).toContain("real");
+    expect(kept.filter((r) => r.autoFarm)).toHaveLength(farmCap);
   });
 });

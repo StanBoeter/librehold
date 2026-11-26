@@ -3,7 +3,11 @@ import { PixelIcon } from "../pixelIcons";
 import { useEffect, useState } from "react";
 import { BUILDINGS, BUILDING_ORDER } from "../../data/buildings.data";
 import { COMBAT_BALANCE, UNITS } from "../../data/units.data";
-import { reportIcon, reportVillageOf } from "../../engine/reports";
+import {
+  reportIcon,
+  reportVillageOf,
+  reportsInTab,
+} from "../../engine/reports";
 import { reportVillageLabel } from "../../i18n/names";
 import { t, useT } from "../../i18n/i18n";
 import { AutoFarmTag, BotTag } from "../components/BotTag";
@@ -341,8 +345,8 @@ export function ReportsView() {
   const [selected, setSelected] = useState<string | null>(null);
   const villageFilter = useUiStore((s) => s.reportsVillageFilter);
   const setVillageFilter = useUiStore((s) => s.setReportsVillageFilter);
-  const hideAutoFarm = useUiStore((s) => s.reportsHideAutoFarm);
-  const setHideAutoFarm = useUiStore((s) => s.setReportsHideAutoFarm);
+  const tab = useUiStore((s) => s.reportsTab);
+  const setTab = useUiStore((s) => s.setReportsTab);
   const villageFilterLabel = useGameStore((s) =>
     villageFilter
       ? reportVillageLabel(reportVillageOf(s.game!, villageFilter))
@@ -350,10 +354,13 @@ export function ReportsView() {
   );
   const reportToOpen = useUiStore((s) => s.reportToOpen);
   const consumeReportToOpen = useUiStore((s) => s.consumeReportToOpen);
+  // Each tab is one half of the inbox: the reports a player reads, and the auto-farm's raids. They are kept in
+  // separate budgets on the server, so a night of farming never pushes a real report out of the Manual tab.
+  const autoFarm = tab === "autoFarm";
   const list = useGameStore((s) =>
     JSON.stringify(
-      s
-        .game!.reports.filter(
+      reportsInTab(s.game!.reports, tab)
+        .filter(
           (r) =>
             !villageFilter ||
             r.targetId === villageFilter ||
@@ -364,7 +371,6 @@ export function ReportsView() {
             filter === "all" ||
             (filter === "unread" ? !r.read : r.type === filter),
         )
-        .filter((r) => !hideAutoFarm || !r.autoFarm)
         .map((r) => ({
           id: r.id,
           time: r.time,
@@ -395,7 +401,11 @@ export function ReportsView() {
   const markRead = useGameStore((s) => s.markReportRead);
   const markAll = useGameStore((s) => s.markAllReportsRead);
   const deleteRead = useGameStore((s) => s.deleteReadReports);
-  const total = useGameStore((s) => s.game!.reports.length);
+  const kept = useGameStore((s) => reportsInTab(s.game!.reports, tab).length);
+  // The budget the server enforces for the half of the inbox this tab shows.
+  const budget = autoFarm
+    ? COMBAT_BALANCE.maxAutoFarmReports
+    : COMBAT_BALANCE.maxReports;
   const t = useT();
 
   useEffect(() => {
@@ -412,11 +422,34 @@ export function ReportsView() {
 
   return (
     <div>
+      {/* Two halves of the inbox, not a filter: the auto-farm's raids are kept in their own budget on the server, so
+          they can never push a report out of the Manual tab. Manual opens first, as the one a player reads. */}
+      <div
+        role="tablist"
+        aria-label={t("reports.title")}
+        className="flex items-end gap-1 mb-2 border-b-2 border-border-dark"
+      >
+        {(["manual", "autoFarm"] as const).map((id) => (
+          <button
+            key={id}
+            role="tab"
+            type="button"
+            aria-selected={tab === id}
+            className={`tab relative -mb-0.5 ${tab === id ? "tab-active" : ""}`}
+            onClick={() => {
+              setTab(id);
+              setFilter("all");
+            }}
+          >
+            {t(`reports.tab.${id}`)}
+          </button>
+        ))}
+      </div>
       <div className="flex items-center gap-2 flex-wrap mb-2 text-[12px]">
         <h2 className="text-lg mr-2">
-          {t("reports.title")}{" "}
+          {t(`reports.tab.${tab}`)}{" "}
           <span className="text-muted font-body text-[12px]">
-            ({total}/{COMBAT_BALANCE.maxReports})
+            ({kept}/{budget})
           </span>
         </h2>
         <select
@@ -425,21 +458,22 @@ export function ReportsView() {
           onChange={(e) => setFilter(e.target.value as Filter)}
         >
           {(
-            ["all", "unread", "attack", "scout", "conquest", "support"] as const
+            (autoFarm
+              ? ["all", "unread"]
+              : [
+                  "all",
+                  "unread",
+                  "attack",
+                  "scout",
+                  "conquest",
+                  "support",
+                ]) as readonly Filter[]
           ).map((f) => (
             <option key={f} value={f}>
               {t(`reports.filter.${f}`)}
             </option>
           ))}
         </select>
-        <label className="inline-flex items-center gap-1">
-          <input
-            type="checkbox"
-            checked={hideAutoFarm}
-            onChange={(e) => setHideAutoFarm(e.target.checked)}
-          />{" "}
-          {t("reports.hideAutoFarm")}
-        </label>
         {villageFilter && (
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 border border-wood-border rounded bg-white/40">
             {t("reports.villageFilter")} <strong>{villageFilterLabel}</strong>
@@ -452,16 +486,16 @@ export function ReportsView() {
             </button>
           </span>
         )}
-        <button className="btn ml-auto" onClick={() => markAll(hideAutoFarm)}>
+        <button className="btn ml-auto" onClick={() => markAll(tab)}>
           {t("reports.markAll")}
         </button>
-        <button className="btn" onClick={() => deleteRead(hideAutoFarm)}>
+        <button className="btn" onClick={() => deleteRead(tab)}>
           {t("reports.deleteRead")}
         </button>
       </div>
       {rows.length === 0 ? (
         <p className="text-muted italic text-[12px]">
-          {t(total > 0 ? "reports.noneMatch" : "reports.empty")}
+          {t(kept > 0 ? "reports.noneMatch" : "reports.empty")}
         </p>
       ) : (
         <table className="table-game table-stack">
