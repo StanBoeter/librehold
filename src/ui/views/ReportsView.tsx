@@ -180,6 +180,9 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
       wall: r.wallBefore,
       luck: r.luck,
       morale: r.morale,
+      // A battle picks its catapult target at random, so a replay that guessed would hit another building. The
+      // report names the one that was actually hit.
+      catapultTarget: r.buildingDamage?.building,
     });
   };
   const haulSum = r.haul ? r.haul.wood + r.haul.clay + r.haul.iron : 0;

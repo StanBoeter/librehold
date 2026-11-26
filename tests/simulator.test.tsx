@@ -178,6 +178,22 @@ describe("the battle simulator", () => {
     ).toBe("3");
   });
 
+  it("aims the catapults at the building a report says was hit", async () => {
+    await boot();
+    useUiStore.getState().openSimulator({
+      attacker: { sword: 500, catapult: 30 },
+      defender: { spear: 100 },
+      wall: 12,
+      catapultTarget: "barracks",
+    });
+    render(<SimulatorTab />);
+    await waitFor(() => {
+      expect(
+        (document.getElementById("sim-catapult") as HTMLSelectElement).value,
+      ).toBe("barracks");
+    });
+  });
+
   it("takes a battle handed to it from a report, once", async () => {
     await boot();
     useUiStore.getState().openSimulator({
@@ -265,6 +281,7 @@ describe("the button on a battle report", () => {
         morale: 1,
         wallBefore: 6,
         wallAfter: 4,
+        buildingDamage: { building: "wall", from: 6, to: 4 },
         outcome: "attackerWon",
         read: false,
       });
@@ -281,6 +298,9 @@ describe("the button on a battle report", () => {
     expect(handed.defenderResearch).toEqual({ spear: 2 });
     expect(handed.wall).toBe(6);
     expect(handed.luck).toBeCloseTo(0.1);
+    // A battle picks its catapult target at random, so the replay has to be told which building was hit; guessing
+    // sieges a building the report never mentions.
+    expect(handed.catapultTarget).toBe("wall");
     expect(useUiStore.getState().view).toBe("rally");
   });
 

@@ -896,8 +896,8 @@ func TestReportWithoutResearchStillDecodes(t *testing.T) {
 }
 
 // The report button hands a battle to the simulator, so the data a report holds has to be enough to reproduce that
-// battle. This runs a real attack, takes the report it produced, and simulates it from the report alone: the outcome,
-// both sides' losses, the wall and the building damage must all come back the same.
+// battle: the outcome, both sides' losses, the wall and the building the catapults hit all have to come back the same.
+// The attack here is a winning siege, so every one of those numbers is actually exercised.
 func TestAReportReplayedInTheSimulatorReproducesItself(t *testing.T) {
 	cfg := gametest.TestConfig()
 	cfg.BeginnerProtectionDays = 0
@@ -906,37 +906,35 @@ func TestAReportReplayedInTheSimulatorReproducesItself(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target.Units = game.Units{game.USpear: 300, game.UArcher: 150}
+	target.Units = game.Units{game.USpear: 50, game.UArcher: 10}
 	target.Buildings[game.BWall] = 12
 	target.Buildings[game.BBarracks] = 9
 	target.Buildings[game.BMain] = 15
 	target.Research = game.Units{game.USpear: 2, game.UArcher: 3}
-	home.Units = game.Units{game.USword: 500, game.UAxe: 200, game.URam: 20, game.UCatapult: 30}
-	home.Research = game.Units{game.USword: 3, game.UAxe: 2, game.URam: 1, game.UCatapult: 1}
+	home.Units = game.Units{game.USword: 9000, game.URam: 200, game.UCatapult: 300}
+	home.Research = game.Units{game.USword: 3, game.URam: 1, game.UCatapult: 1}
 
 	cmd := mustSend(t, w, home, target.X, target.Y, game.UnitCounts(home.Units), "attack")
 	advance(t, w, cmd.ArrivesAt)
 
-	reports := w.ReportsOf("h1")
-	if len(reports) != 1 {
-		t.Fatalf("expected one report, got %d", len(reports))
+	r := w.ReportsOf("h1")[0]
+	if r.Outcome != "attackerWon" || r.BuildingDamage == nil {
+		t.Fatalf("the siege did not go through, so it proves nothing: %s %+v", r.Outcome, r.BuildingDamage)
 	}
-	r := reports[0]
 	if r.Attacker.Research == nil || r.Defender.Research == nil {
 		t.Fatal("the report does not carry the levels the battle was fought at")
 	}
 
-	// Exactly what the report button builds, from exactly what the report holds.
-	sim := game.SimInput{
+	// Exactly what the report button builds, from exactly what the report holds: a report carries no buildings,
+	// only the wall the battle was fought over and the building the catapults hit.
+	hit := r.BuildingDamage.Building
+	got := game.SimulateBattle(game.SimInput{
 		Attacker: game.SimSide{Units: r.Attacker.Units, Research: *r.Attacker.Research},
 		Defender: game.SimSide{
-			Units: r.Defender.Units, Research: *r.Defender.Research,
-			Wall: r.WallBefore, Buildings: target.Buildings,
+			Units: r.Defender.Units, Research: *r.Defender.Research, Wall: r.WallBefore,
 		},
-		Luck:   r.Luck,
-		Morale: r.Morale,
-	}
-	got := game.SimulateBattle(sim, cfg.BattleLosses)
+		Luck: r.Luck, Morale: r.Morale, CatapultTarget: &hit,
+	}, cfg.BattleLosses)
 
 	if got.Outcome != r.Outcome {
 		t.Fatalf("replayed outcome %s, the report says %s", got.Outcome, r.Outcome)
@@ -950,10 +948,44 @@ func TestAReportReplayedInTheSimulatorReproducesItself(t *testing.T) {
 	if got.WallBefore != r.WallBefore || got.WallAfter != r.WallAfter {
 		t.Fatalf("wall %d -> %d, the report says %d -> %d", got.WallBefore, got.WallAfter, r.WallBefore, r.WallAfter)
 	}
-	if (got.BuildingDamage == nil) != (r.BuildingDamage == nil) {
-		t.Fatalf("building damage %+v, the report says %+v", got.BuildingDamage, r.BuildingDamage)
+	if got.BuildingDamage == nil || *got.BuildingDamage != *r.BuildingDamage {
+		t.Fatalf("building damage %+v, the report says %+v", got.BuildingDamage, *r.BuildingDamage)
 	}
-	if got.BuildingDamage != nil && *got.BuildingDamage != *r.BuildingDamage {
-		t.Fatalf("building damage %+v, the report says %+v", *got.BuildingDamage, *r.BuildingDamage)
+}
+
+// A battle picks its catapult target at random, so a replay that leaves the choice to the server sieges a building the
+// report never mentions. The report names the building that was hit, and that is what has to be aimed at.
+func TestReplayingAReportWithoutItsTargetHitsTheWrongBuilding(t *testing.T) {
+	cfg := gametest.TestConfig()
+	cfg.BeginnerProtectionDays = 0
+	w, home := gametest.NewWorldWithHuman(72, cfg)
+	target, err := game.JoinHuman(w, "h2", "Defender", 2, game.QuadrantRandom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target.Buildings[game.BWall] = 12
+	target.Buildings[game.BBarracks] = 9
+	target.Buildings[game.BMain] = 15
+	home.Units = game.Units{game.USword: 9000, game.URam: 200, game.UCatapult: 300}
+	cmd := mustSend(t, w, home, target.X, target.Y, game.UnitCounts(home.Units), "attack")
+	advance(t, w, cmd.ArrivesAt)
+	r := w.ReportsOf("h1")[0]
+	if r.BuildingDamage == nil {
+		t.Fatal("no building was hit")
+	}
+
+	got := game.SimulateBattle(game.SimInput{
+		Attacker: game.SimSide{Units: r.Attacker.Units, Research: *r.Attacker.Research},
+		Defender: game.SimSide{
+			Units: r.Defender.Units, Research: *r.Defender.Research, Wall: r.WallBefore,
+		},
+		Luck: r.Luck, Morale: r.Morale,
+	}, cfg.BattleLosses)
+
+	if got.BuildingDamage == nil {
+		t.Fatal("the replay broke nothing, so it cannot be compared")
+	}
+	if got.BuildingDamage.Building == r.BuildingDamage.Building {
+		t.Skipf("the guess happened to pick the same building (%v); the case is not exercised here", r.BuildingDamage.Building)
 	}
 }

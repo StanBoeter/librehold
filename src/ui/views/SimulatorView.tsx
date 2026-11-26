@@ -341,6 +341,7 @@ export function SimulatorTab() {
     if (p.wall !== undefined) setWall(p.wall);
     if (p.defenderBuildings)
       setBuildings({ ...emptyBuildings(), ...p.defenderBuildings });
+    if (p.catapultTarget) setCatapultTarget(p.catapultTarget);
     if (p.morale !== undefined) setMorale(p.morale);
     if (p.luck !== undefined) setLuck(p.luck);
   }, [clearPrefill]);

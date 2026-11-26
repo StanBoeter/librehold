@@ -31,6 +31,8 @@ export interface SimPrefill {
   defenderResearch?: Partial<Record<UnitId, number>>;
   /** The defender's buildings, so catapults aim at what the village really has. */
   defenderBuildings?: Partial<Record<BuildingId, number>>;
+  /** The building a report says the catapults hit, so a replay sieges the same one instead of guessing. */
+  catapultTarget?: BuildingId;
   wall?: number;
   luck?: number;
   morale?: number;
