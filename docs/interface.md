@@ -50,12 +50,72 @@ checks the fonts.
 
 ## Rally Point — the battle simulator
 
-- A tab of the Rally Point (`src/ui/views/SimulatorView.tsx`), next to Send troops, Commands and Templates. Two armies side by side, one row per unit: its icon, the attacker's troops and Smithy level, then the defender's. A noble has no level cell (it is bought, not researched), but the column stays open.
-- Beside the armies: the defender's wall, morale, the luck slider (± `COMBAT_BALANCE.luckRange`, shown as a percentage) and the catapult target. There is no hideout field and no loot: the simulator answers the fight, not the haul, so the server zeroes the haul it would otherwise work out.
-- The catapult target only means something when the player knows the defender's buildings. Those come from a scout report; without one the server assumes an ordinary village — a town hall at `SimDefaultMainLevel` and the wall that was typed — and a catapult always hits the town hall.
-- The answer comes from `game.SimulateBattle`, which runs the same `ResolveBattle` a real attack does, so the numbers cannot drift from a real fight. Losses are also valued at unit cost, so two runs can be compared. A run is a snapshot: editing the fields afterwards does not rewrite the answer already on screen.
-- Prefills: `useUiStore.openSimulator(prefill)` stores a one-off `SimPrefill` and switches to the Rally Point, which opens on the Simulator tab and consumes it. A battle report fills in both armies, both sides' Smithy levels, the wall and the luck it was fought at. A scout report fills in the defender, the wall and the buildings. A field report has no button: there is no village to defend. The map has no simulator button: the report is where the player already has the armies in front of them.
-- The server keeps no state: `POST /api/v1/worlds/{wid}/simulate` validates the input (`server/internal/app/simulator.go`) and answers inside a read-only view of the world, so it changes nothing.
+A tab of the Rally Point (`src/ui/views/SimulatorView.tsx`), next to Send troops, Commands and Templates. It answers
+"what would this fight do" without sending anything: the player types two armies and the defence they meet, and the
+answer comes from `game.SimulateBattle`, which runs the same `ResolveBattle` a real attack does, so the numbers cannot
+drift from a real fight.
+
+### The fields
+
+- **Two columns, no frames.** On a wide screen the left column is what the player describes — the armies, then the
+  wall, morale, luck and catapult target under them — and the right column is the answer: the Simulate button and
+  the report the run produced, so a change and its effect are read without scrolling. Below the large breakpoint
+  everything is one column in that same order. Neither column is a `.panel` box: its border, background and shadow
+  only put frames between the player and the numbers.
+- **Armies.** One row per unit: its icon, the attacker's troops and Smithy level, then the defender's. A noble has no
+  level cell (it is bought, not researched), but the column stays open. The icon column is a fixed 18 px, not
+  `auto`: an `auto` column is the one that gives way when the row runs out of space, and on a 320 px phone it
+  collapsed to 0 px and hid every icon. Below the `sm` breakpoint the troop fields and level selects shrink
+  (`w-14`/`w-12`, `gap-x-1`) so the whole grid still fits a 320 px screen without the page scrolling sideways. **Fill in my troops** asks which side first
+  ("As attacker" / "As defender") and fills that side from the village the player is looking at: its troops, its own
+  Smithy levels per unit, and — on the defending side — the wall it would be defended behind. The same garrison is
+  both what the village would send and what would stand in it, so the button cannot choose for the player.
+- **Wall, morale, luck.** The wall is the defender's; the attacker's is ignored. Luck is the ± `COMBAT_BALANCE.luckRange`
+  slider, shown as a percentage, and is clamped server-side by `ClampLuck` so a typed-in value cannot show a fight that
+  cannot happen. There is no hideout field and no loot: the simulator answers the fight, not the haul, so the server
+  zeroes the haul it would otherwise work out.
+- **Catapult target.** Only offered when the attacker brings catapults — nothing else breaks a building — and taking the
+  last catapult away clears it rather than sending it in a run that cannot use it. The control is the send screen's own
+  in wording and styling (`rally.catTarget`, `BUILDING_ORDER`) but it has **no "a random building"**: a real battle
+  draws the target at random, while the simulator answers one question and must name what it broke. Leaving the choice
+  out would make the server take the first candidate in `BuildingOrder`, which is always the town hall, so the label
+  would promise a draw over a result that never varies.
+- **The target's level.** A building plus its level, and both are needed: a catapult only aims at a building it is told
+  the level of, so a target named without one is skipped for the server's guess. The field is named for the building it
+  belongs to ("Barracks level:") from `sim.catapultLevel`, and its maximum is that building's own (`BUILDINGS[b].maxLevel`
+  — 30 for the town hall, 25 for the barracks, 10 for the hideout). Picking a building shows the level it already has
+  when a report supplied the buildings, and 1 (the lowest a village can have) otherwise. The wall is the exception: it
+  already has its own level field, so choosing it as the target renames that field instead of adding a second one that
+  could disagree with it. With no buildings at all the server assumes an ordinary village — a town hall at
+  `SimDefaultMainLevel` and the wall that was typed — and a catapult always hits the town hall.
+
+### The answer
+
+Drawn as a battle report: the same card, the same section bars, the same two army tables, at the same size, and by the
+report's own column rule — every unit, unless the player turned on "Only units in this battle"
+(`prefs.reportsCompactUnits`), which both cards then honour. Only what the simulator genuinely cannot know differs:
+there is no village name, no loot and no loyalty, because a run takes nothing and changes nothing. On a phone the two army tables scroll sideways inside their own frames, and scrolling one scrolls the other so the same unit stays under the same finger — the same behaviour a report has, wired the same way. A run is a snapshot:
+editing the fields afterwards does not rewrite the answer already on screen.
+
+Scouts sent on their own are a scouting mission, not a battle, and the server resolves them by `resolveScout`'s own
+rule: only the scouts kept at home stand against them, and neither luck nor the wall is read. The simulator reaches the
+same rule through `ResolveBattle` and says so — the bar reads Scouting succeeded / failed, and the wall, luck and
+catapult settings are not offered, because they would be fields that change nothing.
+
+### Prefills
+
+`useUiStore.openSimulator(prefill)` stores a one-off `SimPrefill` and switches to the Rally Point, which opens on the
+Simulator tab and consumes it. A battle report fills in both armies, both sides' Smithy levels, the wall, the luck and
+morale it was fought at, and the building its catapults broke with the level that building stood at. A scout report
+fills in the defender, the wall and the buildings. A field report has no button: there is no village to defend, and neither has a report the reader was blinded in — whoever was wiped out cannot say what beat him, so his copy holds no enemy army and a replay would answer a battle the report never described. The map has no simulator button: the report is where the player already has the armies in front of them.
+
+### The wire
+
+`POST /api/v1/worlds/{wid}/simulate` is the only entry point. `checkSimInput`
+(`server/internal/app/simulator.go`) refuses a negative count, an army over `MaxSimUnits`, a wall over `maxSimWall`, a
+building level over `maxSimBuildingLevel`, a morale outside `0..maxSimMorale`, and a catapult target that is not a real
+building — before the world is locked for a read that would be thrown away. The server keeps no state: it answers inside
+a read-only view of the world, so it changes nothing.
 
 ## Phone (mobile layout)
 

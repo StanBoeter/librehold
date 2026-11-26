@@ -28,12 +28,10 @@ type SimSide struct {
 	Buildings Buildings `json:"buildings,omitempty"`
 }
 
-// SimResult is the battle plus the two numbers the player is really asking about: what each side loses.
+// SimResult is the battle itself. It is a BattleResult rather than a new set of numbers, so a simulated fight and a
+// real one are described by exactly the same thing.
 type SimResult struct {
 	BattleResult
-	// AttackerCost and DefenderCost are the losses valued at each unit's own cost, for comparing two runs.
-	AttackerCost float64 `json:"attackerCost"`
-	DefenderCost float64 `json:"defenderCost"`
 }
 
 // SimDefaultMainLevel is the town hall a simulated defender gets when the player names no buildings. Level 1 is the
@@ -62,8 +60,13 @@ func SimulateBattle(in SimInput, lossMode BattleLossMode) SimResult {
 	// damage, and the wall the player typed. A bare level-1 hall is the floor of the rule, so leaving it there made
 	// every catapult run report nothing broken — a simulator that cannot show the damage is not answering the
 	// question it is asked. The wall still comes from the field, not from this guess.
-	if defender.Buildings == (Buildings{}) {
+	//
+	// Filled one building at a time: a report knows only the building its catapults broke, and the caller sends just
+	// that one, so filling only when the whole set is empty would leave the village without a town hall.
+	if defender.Buildings[BMain] == 0 {
 		defender.Buildings[BMain] = SimDefaultMainLevel
+	}
+	if defender.Buildings[BWall] == 0 {
 		defender.Buildings[BWall] = defender.Wall
 	}
 	res := ResolveBattle(BattleInput{
@@ -81,15 +84,5 @@ func SimulateBattle(in SimInput, lossMode BattleLossMode) SimResult {
 	// The simulator answers the fight, not the loot: a side carries no resources, so any haul the shared battle code
 	// works out would be a number about a village the player never described.
 	res.Haul, res.HaulCapacity = Resources{}, 0
-	return SimResult{BattleResult: res, AttackerCost: costOf(res.AttackerLosses), DefenderCost: costOf(res.DefenderLosses)}
-}
-
-// costOf values an army's losses at what it costs to train one of each.
-func costOf(u UnitCounts) float64 {
-	total := 0.0
-	for _, id := range UnitIDs {
-		c := UnitDefs[id].Cost
-		total += float64(u[id]) * (c.Wood + c.Clay + c.Iron)
-	}
-	return total
+	return SimResult{BattleResult: res}
 }

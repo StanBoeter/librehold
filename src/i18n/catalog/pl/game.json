@@ -950,15 +950,12 @@
     "allVillages": "wszystkie wioski"
   },
   "reports": {
-    "noUnits": "brak jednostek",
-    "count": "Liczba",
     "losses": "Straty",
     "missing": "Raport nie istnieje.",
     "back": "← Lista",
     "retry": "Ponów atak (ten sam skład)",
     "sendA": "Wyślij szablon A",
     "delete": "Usuń",
-    "result": "Wynik:",
     "conquered": "Wioska podbita!",
     "scoutOk": "Zwiad udany",
     "scoutFail": "Zwiad nieudany",
@@ -1002,7 +999,16 @@
       "place": "droga w {at}",
       "missed": "twoje wojsko nikogo nie zastało: armii już nie było.",
       "scouted": "Zbadana armia:"
-    }
+    },
+    "quantity": "Stan:",
+    "origin": "Skąd:",
+    "destination": "Dokąd:",
+    "armyUnknown": "Twoje wojsko zostało zniszczone i nikt nie wrócił, by policzyć wroga. Jego siły są nieznane.",
+    "scoutUnknown": "Twoi zwiadowcy zostali schwytani, zanim zdążyli się rozejrzeć. Nie wiadomo, co im się postawiło.",
+    "battleAt": "Bitwa pod {at}",
+    "buildings": "Budynki:",
+    "fromTo": "z {from} na {to}",
+    "onlyUsedUnits": "Tylko jednostki z bitwy"
   },
   "farm": {
     "status": {
@@ -1305,25 +1311,22 @@
     "wall": "Poziom muru",
     "luck": "Szczęście ({range}% w obie strony)",
     "morale": "Morale",
-    "catapultTarget": "Cel katapult:",
-    "randomBuilding": "pierwszy budynek, który da się zniszczyć",
+    "catapultLevel": "Poziom: {building}",
     "run": "Symuluj",
     "running": "Symulowanie…",
     "clear": "Wyczyść",
     "fillVillage": "Wstaw moje wojska",
+    "fillWhichSide": "Po której stronie?",
+    "fillHint": "Wstaw wojska, poziomy Kuźni i mur wioski {village} jako jedną stronę bitwy.",
+    "asAttacker": "Jako atakujący",
+    "asDefender": "Jako obrońca",
     "failed": "Symulacja nie odpowiedziała. Spróbuj ponownie.",
-    "none": "—",
-    "side": "Strona",
-    "sent": "Wysłano",
-    "lost": "Straty",
-    "left": "Ocalało",
-    "cost": "Wartość strat",
     "attackerWon": "Atakujący wygrywa",
-    "defenderWon": "Obrońca się trzyma",
-    "powers": "Siła ataku {attack} przeciw sile obrony {defense}.",
-    "wallFell": "Mur spada z {from} na {to}.",
-    "buildingHit": "{building} uszkodzony: {from} → {to}.",
-    "haul": "Łup: {loot} surowców.",
-    "fromReport": "Wstaw do symulatora"
+    "defenderWon": "Obrońca wygrywa",
+    "fromReport": "Wstaw do symulatora",
+    "atSimulated": "Symulowana bitwa",
+    "atScout": "Symulowany zwiad",
+    "scoutRule": "Same zwiadowcy: stają przeciw nim tylko zwiadowcy trzymani w wiosce. Szczęście i mur nie mają znaczenia.",
+    "noVillage": "symulowane wojsko"
   }
 }

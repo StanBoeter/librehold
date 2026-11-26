@@ -760,8 +760,8 @@ func TestSimulateBattleAnswersAndChangesNothing(t *testing.T) {
 	if res.body["attackerLosses"] == nil || res.body["defenderLosses"] == nil {
 		t.Fatalf("the result has no losses: %v", res.body)
 	}
-	if cost, ok := res.body["attackerCost"].(float64); !ok || cost <= 0 {
-		t.Fatalf("the losses were not valued: %v", res.body["attackerCost"])
+	if res.body["kind"] != "battle" {
+		t.Fatalf("a battle was answered as %v", res.body["kind"])
 	}
 
 	after := ala.do("GET", "/api/v1/worlds/"+wid+"/state", nil)

@@ -54,9 +54,6 @@ func TestSimulateBattleOfEmptyArmies(t *testing.T) {
 	if got.Outcome != "defenderWon" {
 		t.Fatalf("an empty attack cannot win: %s", got.Outcome)
 	}
-	if got.AttackerCost != 0 || got.DefenderCost != 0 {
-		t.Fatalf("no troops, no cost: %v %v", got.AttackerCost, got.DefenderCost)
-	}
 }
 
 // The wall is the defender's, so raising it must never help the attacker.
@@ -139,6 +136,59 @@ func TestSimulateBattleAimsAtTheBuildingsTheVillageHas(t *testing.T) {
 	}
 }
 
+// A report knows one building: the one its catapults broke, and the level it stood at. Sending that alone has to be
+// enough to aim at it again — filling the village in only when all of it was empty left such a village without a
+// town hall, and the named target was silently skipped for the guess that took its place.
+func TestSimulateBattleAimsAtTheOneBuildingAReportNames(t *testing.T) {
+	in := simInput(UnitCounts{USword: 20000, UCatapult: 2000}, UnitCounts{USpear: 10}, 10, 0)
+	in.Defender.Buildings = Buildings{}
+	in.Defender.Buildings[BBarracks] = 9
+	target := BBarracks
+	in.CatapultTarget = &target
+	got := SimulateBattle(in, "normal")
+	if got.BuildingDamage == nil {
+		t.Fatal("the barracks a report named was not hit")
+	}
+	if got.BuildingDamage.Building != BBarracks {
+		t.Fatalf("aimed at %v, want the barracks the report named", got.BuildingDamage.Building)
+	}
+	if got.BuildingDamage.From != 9 {
+		t.Fatalf("fought over a level %d barracks, want the level 9 the report held", got.BuildingDamage.From)
+	}
+	// The rest of the village is still an ordinary one: the wall the player typed and a town hall to aim at.
+	if got.WallBefore != 10 {
+		t.Fatalf("wall %d, want the 10 that was typed", got.WallBefore)
+	}
+}
+
+// Scouts sent alone are a scouting mission, not a battle: the server resolves them by a rule of its own, in which
+// only the scouts kept at home stand against them and neither luck nor the wall is read. The simulator must reach
+// that same rule, or it would answer a scouting with a battle that never happens.
+func TestSimulateBattleResolvesScoutsByTheScoutRule(t *testing.T) {
+	in := simInput(UnitCounts{UScout: 10}, UnitCounts{UScout: 20}, 10, 0)
+	got := SimulateBattle(in, "normal")
+	if got.Kind != "scout" {
+		t.Fatalf("answered a scouting mission as a %q", got.Kind)
+	}
+	// Ten scouts against twenty is a loss, and the spearmen behind them are not part of the question.
+	if got.Outcome != "defenderWon" {
+		t.Fatalf("outcome %s, want the scouts turned back", got.Outcome)
+	}
+	if got.AttackerLosses[UScout] != 10 || got.DefenderLosses.Total() != 0 {
+		t.Fatalf("losses %v / %v, want every scout lost and none of the defenders", got.AttackerLosses, got.DefenderLosses)
+	}
+	// A real battle would have let the wall help; a scouting mission never reads it.
+	if got.WallBefore != got.WallAfter {
+		t.Fatalf("the wall moved from %d to %d, so this was resolved as a battle", got.WallBefore, got.WallAfter)
+	}
+
+	// One swordsman alongside them makes it an ordinary attack again, with the wall in play.
+	mixed := simInput(UnitCounts{UScout: 10, USword: 1}, UnitCounts{UScout: 20}, 10, 0)
+	if mixed := SimulateBattle(mixed, "normal"); mixed.Kind != "battle" {
+		t.Fatalf("a mixed army was resolved as a %q", mixed.Kind)
+	}
+}
+
 // The simulator answers the fight, not the loot: a side carries no resources, so there is never a haul to show.
 func TestSimulateBattleHasNoHaul(t *testing.T) {
 	got := SimulateBattle(simInput(UnitCounts{USword: 500}, UnitCounts{USpear: 10}, 0, 0), "normal")
@@ -162,22 +212,6 @@ func TestSimulateBattleIsRepeatable(t *testing.T) {
 		if *first.BuildingDamage != *want.BuildingDamage {
 			t.Fatalf("run %d broke a different building: %+v vs %+v", i, *first.BuildingDamage, *want.BuildingDamage)
 		}
-	}
-}
-
-// Losses are valued at what it costs to train them, which is what makes two runs comparable.
-func TestSimulateBattleValuesTheLosses(t *testing.T) {
-	noCost := UnitCounts{}
-	if costOf(noCost) != 0 {
-		t.Fatal("an empty army costs nothing")
-	}
-	one := UnitCounts{USword: 1}
-	c := UnitDefs[USword].Cost
-	if want := c.Wood + c.Clay + c.Iron; costOf(one) != want {
-		t.Fatalf("one swordsman valued at %v, want %v", costOf(one), want)
-	}
-	if costOf(UnitCounts{USword: 2}) != 2*costOf(one) {
-		t.Fatal("cost does not scale with the count")
 	}
 }
 

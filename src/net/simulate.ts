@@ -35,8 +35,6 @@ export interface SimResult {
   wallBefore: number;
   wallAfter: number;
   buildingDamage?: { building: BuildingId; from: number; to: number };
-  attackerCost: number;
-  defenderCost: number;
 }
 
 /** Fills a partial count up to every unit, so the table can show a row per unit without checking for holes. */

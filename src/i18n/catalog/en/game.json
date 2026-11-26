@@ -916,15 +916,12 @@
     "allVillages": "all villages"
   },
   "reports": {
-    "noUnits": "no units",
-    "count": "Count",
     "losses": "Losses",
     "missing": "This report doesn't exist.",
     "back": "← List",
     "retry": "Repeat the attack (same troops)",
     "sendA": "Send template A",
     "delete": "Delete",
-    "result": "Result:",
     "conquered": "Village conquered!",
     "scoutOk": "Scouting succeeded",
     "scoutFail": "Scouting failed",
@@ -968,7 +965,16 @@
       "place": "the road at {at}",
       "missed": "your troops found nothing: the army was gone.",
       "scouted": "Scouted army:"
-    }
+    },
+    "quantity": "Quantity:",
+    "origin": "Origin:",
+    "destination": "Destination:",
+    "armyUnknown": "Your army was wiped out, and nobody came back to count the enemy. Their troops are unknown.",
+    "scoutUnknown": "Your scouts were caught before they could look. What stood against them is unknown.",
+    "battleAt": "Battle at {at}",
+    "buildings": "Buildings:",
+    "fromTo": "from {from} to {to}",
+    "onlyUsedUnits": "Only units in this battle"
   },
   "farm": {
     "status": {
@@ -1269,25 +1275,22 @@
     "wall": "Wall level",
     "luck": "Luck ({range}% either way)",
     "morale": "Morale",
-    "catapultTarget": "Catapult target:",
-    "randomBuilding": "the first building it can break",
+    "catapultLevel": "{building} level:",
     "run": "Simulate",
     "running": "Simulating…",
     "clear": "Clear",
     "fillVillage": "Fill in my troops",
+    "fillWhichSide": "Which side?",
+    "fillHint": "Put {village}'s troops, Smithy levels and wall in as one side of the battle.",
+    "asAttacker": "As attacker",
+    "asDefender": "As defender",
     "failed": "The simulation did not answer. Try again.",
-    "none": "—",
-    "side": "Side",
-    "sent": "Sent",
-    "lost": "Lost",
-    "left": "Survivors",
-    "cost": "Value lost",
     "attackerWon": "The attacker wins",
-    "defenderWon": "The defender holds",
-    "powers": "Attack power {attack} against defence power {defense}.",
-    "wallFell": "The wall falls from {from} to {to}.",
-    "buildingHit": "{building} damaged: {from} → {to}.",
-    "haul": "Haul back: {loot} resources.",
-    "fromReport": "Fill in simulator"
+    "defenderWon": "The defender wins",
+    "fromReport": "Fill in simulator",
+    "atSimulated": "Simulated battle",
+    "atScout": "Simulated scouting",
+    "scoutRule": "Scouts alone: only the scouts kept at home stand against them. Luck and the wall do not matter.",
+    "noVillage": "a simulated army"
   }
 }

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -10,7 +11,8 @@ import {
 import { SimulatorTab } from "../src/ui/views/SimulatorView";
 import { RallyPointView } from "../src/ui/views/RallyPointView";
 import { ReportsView } from "../src/ui/views/ReportsView";
-import { emptyBuildings } from "../src/engine/types";
+import { emptyBuildings, UNIT_IDS } from "../src/engine/types";
+import { BUILDINGS, BUILDING_ORDER } from "../src/data/buildings.data";
 import { useGameStore } from "../src/state/gameStore";
 import { useUiStore } from "../src/state/uiStore";
 import { setLocale } from "../src/i18n/i18n";
@@ -31,8 +33,22 @@ const ANSWER = {
   defenderSurvivors: {},
   wallBefore: 5,
   wallAfter: 3,
-  attackerCost: 12000,
-  defenderCost: 8000,
+};
+
+/** The answer to a scouting mission, shaped like the server's own resolveScout result. */
+const SCOUT_ANSWER = {
+  kind: "scout",
+  outcome: "defenderWon",
+  attackPower: 10,
+  defensePower: 40,
+  luck: 0,
+  morale: 1,
+  attackerLosses: { scout: 10 },
+  attackerSurvivors: {},
+  defenderLosses: {},
+  defenderSurvivors: { scout: 20 },
+  wallBefore: 10,
+  wallAfter: 10,
 };
 
 async function boot(
@@ -76,9 +92,107 @@ describe("the battle simulator", () => {
 
     expect(await screen.findByText("The attacker wins")).toBeTruthy();
     expect(paths.some((p) => p.includes("/simulate"))).toBe(true);
-    // The losses are shown per unit, as the report-side tables do.
-    expect(screen.getByText("Lost")).toBeTruthy();
+    // Drawn as a battle report: the same two army tables, a row of what each side brought and a row of its losses.
+    expect(screen.getAllByText("Losses").length).toBeGreaterThan(0);
     expect(screen.getByText("120")).toBeTruthy();
+    // The card is a report and nothing more: every bar in it is one a real report has, and there is no extra
+    // section a report never shows.
+    const card = document.querySelector(".report-card")!;
+    const bars = [...card.querySelectorAll(".report-bar")].map((b) =>
+      (b.textContent ?? "").trim(),
+    );
+    for (const bar of bars) {
+      expect(bar).not.toMatch(/Worth lost|Value lost|cost/i);
+    }
+  });
+
+  it("says a scouting mission was a scouting mission, not a battle", async () => {
+    await boot({
+      "POST /api/v1/worlds/1/simulate": () => ({
+        status: 200,
+        body: SCOUT_ANSWER,
+      }),
+    });
+    render(<SimulatorTab />);
+    // Scouts alone are a scouting mission, which the server resolves by a rule of its own.
+    fireInput(atk("scout"), "10");
+    screen.getByRole("button", { name: "Simulate" }).click();
+    expect(await screen.findByText("Scouting failed")).toBeTruthy();
+    expect(screen.getByText("Simulated scouting")).toBeTruthy();
+    // The battle's own numbers would describe a fight that never happened: scouts alone ignore luck and the wall.
+    expect(screen.queryByText(/Attack power/)).toBe(null);
+    expect(screen.queryByRole("slider")).toBe(null);
+  });
+
+  it("does not offer the wall, luck or catapults when only scouts are sent", async () => {
+    await boot();
+    render(<SimulatorTab />);
+    fireInput(atk("scout"), "10");
+    expect(document.getElementById("sim-wall")).toBe(null);
+    expect(document.getElementById("sim-luck")).toBe(null);
+    expect(document.getElementById("sim-catapult")).toBe(null);
+    // Catapults would not be a scout mission at all, so they are the wrong thing to reach for here.
+    // One swordsman makes it an ordinary attack again, where the wall and luck matter.
+    fireInput(atk("sword"), "1");
+    expect(document.getElementById("sim-wall")).not.toBe(null);
+    expect(document.getElementById("sim-luck")).not.toBe(null);
+    // Catapults are a separate question: without them there is still nothing to aim at.
+    expect(document.getElementById("sim-catapult")).toBe(null);
+    fireInput(atk("catapult"), "5");
+    expect(document.getElementById("sim-catapult")).not.toBe(null);
+  });
+
+  it("draws every unit column unless the reports were asked to narrow them", async () => {
+    await boot({
+      "POST /api/v1/worlds/1/simulate": () => ({ status: 200, body: ANSWER }),
+    });
+    // Off, as it is on a wide screen: a report then shows every unit, so the simulator has to as well.
+    useUiStore.setState({
+      prefs: { ...useUiStore.getState().prefs, reportsCompactUnits: false },
+    });
+    render(<SimulatorTab />);
+    fireInput(atk("sword"), "500");
+    screen.getByRole("button", { name: "Simulate" }).click();
+    await screen.findByText("The attacker wins");
+    expect(document.querySelector("table.table-units-compact")).toBe(null);
+    // Two tables, one per side, each with a spacer column and all twelve units.
+    const tables = document.querySelectorAll("table.table-units");
+    expect(tables.length).toBe(2);
+    for (const t of tables) {
+      expect(t.querySelectorAll("thead th").length).toBe(13);
+    }
+
+    // On, and the card narrows to the units the battle used — the report's own rule, from the same pref.
+    act(() => {
+      useUiStore.setState({
+        prefs: { ...useUiStore.getState().prefs, reportsCompactUnits: true },
+      });
+    });
+    const compact = document.querySelector("table.table-units-compact");
+    expect(compact).not.toBe(null);
+    // A swordsman and a spearman, and nobody else.
+    expect(compact!.querySelectorAll("thead th").length).toBe(3);
+  });
+
+  it("keeps the two sides' tables scrolled together, as a report does", async () => {
+    await boot({
+      "POST /api/v1/worlds/1/simulate": () => ({ status: 200, body: ANSWER }),
+    });
+    render(<SimulatorTab />);
+    fireInput(atk("sword"), "500");
+    screen.getByRole("button", { name: "Simulate" }).click();
+    await screen.findByText("The attacker wins");
+    // Each side scrolls sideways on a phone, so scrolling one has to scroll the other: the same unit type has to stay
+    // under the same finger on both.
+    const scrollers = [
+      ...document.querySelectorAll("[data-sim-result] .overflow-x-auto"),
+    ] as HTMLDivElement[];
+    expect(scrollers.length).toBe(2);
+    const [first, second] = scrollers;
+    expect(first && second).toBeTruthy();
+    first!.scrollLeft = 120;
+    first!.dispatchEvent(new Event("scroll"));
+    expect(second!.scrollLeft).toBe(120);
   });
 
   it("shows a wall that fell", async () => {
@@ -88,7 +202,9 @@ describe("the battle simulator", () => {
     render(<SimulatorTab />);
     fireInput(atk("sword"), "500");
     screen.getByRole("button", { name: "Simulate" }).click();
-    expect(await screen.findByText(/The wall falls from 5 to 3/)).toBeTruthy();
+    // The wall and the building it hit share the report's "Buildings" bar.
+    expect(await screen.findByText("Buildings:")).toBeTruthy();
+    expect(screen.getByText(/from 5 to 3/)).toBeTruthy();
   });
 
   it("does not ask the server before there are troops", async () => {
@@ -107,9 +223,73 @@ describe("the battle simulator", () => {
     });
     render(<SimulatorTab />);
     screen.getByRole("button", { name: "Fill in my troops" }).click();
+    // The village is either side of the battle, so the button asks which.
+    fireEvent.click(await screen.findByRole("button", { name: "As attacker" }));
     await waitFor(() => {
       expect((atk("sword") as HTMLInputElement).value).toBe("77");
     });
+  });
+
+  it("fills the defender in, with its Smithy levels and its wall, when that is the side chosen", async () => {
+    const { paths } = await boot(
+      {
+        "POST /api/v1/worlds/1/simulate": () => ({ status: 200, body: ANSWER }),
+      },
+      (g) => {
+        const v = g.villages[g.activeVillageId]!;
+        v.units = { ...v.units, spear: 240, archer: 60 };
+        v.research = { ...v.research, spear: 2, archer: 3 };
+        v.buildings = { ...v.buildings, wall: 11 };
+      },
+    );
+    render(<SimulatorTab />);
+    screen.getByRole("button", { name: "Fill in my troops" }).click();
+    fireEvent.click(await screen.findByRole("button", { name: "As defender" }));
+    await waitFor(() => {
+      expect(
+        (document.getElementById("sim-def-spear") as HTMLInputElement).value,
+      ).toBe("240");
+    });
+    expect(
+      (document.getElementById("sim-def-archer") as HTMLInputElement).value,
+    ).toBe("60");
+    // The Smithy levels of this village, on the side it now holds.
+    expect(
+      (document.getElementById("sim-def-lvl-spear") as HTMLSelectElement).value,
+    ).toBe("2");
+    expect(
+      (document.getElementById("sim-def-lvl-archer") as HTMLSelectElement)
+        .value,
+    ).toBe("3");
+    // And the wall it would be defended behind.
+    expect(
+      (document.getElementById("sim-wall") as HTMLInputElement).value,
+    ).toBe("11");
+    // The attacker is left alone: it is somebody else's army, not this village's.
+    expect((atk("sword") as HTMLInputElement).value).toBe("0");
+
+    screen.getByRole("button", { name: "Simulate" }).click();
+    await waitFor(() =>
+      expect(paths.some((p) => p.includes("/simulate"))).toBe(true),
+    );
+    const sent = JSON.parse(
+      String(
+        (
+          fetch as unknown as { mock: { calls: [string, RequestInit][] } }
+        ).mock.calls.find(([url]) => url.includes("/simulate"))![1].body,
+      ),
+    ) as {
+      defender: {
+        units: Record<string, number>;
+        research: Record<string, number>;
+        wall: number;
+      };
+      attacker: { units: Record<string, number> };
+    };
+    expect(sent.defender.units.spear).toBe(240);
+    expect(sent.defender.research.spear).toBe(2);
+    expect(sent.defender.wall).toBe(11);
+    expect(sent.attacker.units.sword ?? 0).toBe(0);
   });
 
   it("fills the attacker's Smithy levels in from the same village", async () => {
@@ -126,6 +306,7 @@ describe("the battle simulator", () => {
     );
     render(<SimulatorTab />);
     screen.getByRole("button", { name: "Fill in my troops" }).click();
+    fireEvent.click(await screen.findByRole("button", { name: "As attacker" }));
     await waitFor(() => {
       expect(
         (document.getElementById("sim-atk-lvl-sword") as HTMLSelectElement)
@@ -185,13 +366,19 @@ describe("the battle simulator", () => {
       defender: { spear: 100 },
       wall: 12,
       catapultTarget: "barracks",
+      defenderBuildings: { barracks: 4 },
     });
     render(<SimulatorTab />);
+    // The report carried catapults, so the target it names is offered.
     await waitFor(() => {
       expect(
         (document.getElementById("sim-catapult") as HTMLSelectElement).value,
       ).toBe("barracks");
     });
+    // The level the building stood at comes with the report, so the replay shows the damage it really took.
+    expect(
+      (document.getElementById("sim-catapult-level") as HTMLInputElement).value,
+    ).toBe("4");
   });
 
   it("takes a battle handed to it from a report, once", async () => {
@@ -391,6 +578,45 @@ describe("the button on a battle report", () => {
   });
 });
 
+describe("a report the reader was blinded in", () => {
+  it("offers no button, because there is no army to fill in", async () => {
+    await boot({}, (g) => {
+      const home = g.villages[g.activeVillageId]!;
+      g.reports.push({
+        id: "r-blind",
+        time: g.now,
+        type: "attack",
+        originId: home.id,
+        targetId: "v:9:9",
+        origin: {
+          id: home.id,
+          name: "Home",
+          x: home.x,
+          y: home.y,
+          ownerId: home.ownerId ?? undefined,
+        },
+        target: { id: "v:9:9", name: "Barbarians", x: 9, y: 9 },
+        // The attacker was wiped out, so his copy holds no defender: blindSide zeroed the whole side.
+        attacker: { units: { sword: 1 }, losses: { sword: 1 } },
+        defender: { units: {}, losses: {} },
+        defenderHidden: true,
+        luck: 0,
+        morale: 1,
+        wallBefore: 20,
+        wallAfter: 20,
+        outcome: "defenderWon",
+        read: false,
+      });
+    });
+    render(<ReportsView />);
+    fireEvent.click(await screen.findByText(/→/));
+    // Replaying this would fight an empty village and answer a battle the report never described.
+    expect(screen.queryByRole("button", { name: "Fill in simulator" })).toBe(
+      null,
+    );
+  });
+});
+
 describe("the buildings a prefill brings", () => {
   it("sends them, so a catapult aims at a building the village really has", async () => {
     const { paths } = await boot({
@@ -447,9 +673,154 @@ describe("the buildings a prefill brings", () => {
     // The server's own default (a town hall and the wall) is the honest answer when the player knows nothing.
     expect(sent.defender.buildings).toBe(undefined);
   });
+
+  it("does not ask for the wall's level twice", async () => {
+    await boot();
+    render(<SimulatorTab />);
+    fireInput(atk("catapult"), "30");
+    fireEvent.change(document.getElementById("sim-wall")!, {
+      target: { value: "9" },
+    });
+    fireEvent.change(document.getElementById("sim-catapult")!, {
+      target: { value: "wall" },
+    });
+    // The wall already has a field, so that field is the level the catapults break it from — not a second one.
+    expect(document.getElementById("sim-catapult-level")).toBe(null);
+    expect(screen.getAllByText(/Wall level/).length).toBe(1);
+    expect(
+      (document.getElementById("sim-wall") as HTMLInputElement).value,
+    ).toBe("9");
+  });
+
+  it("names a building rather than offering a draw it cannot show", async () => {
+    await boot();
+    render(<SimulatorTab />);
+    fireInput(atk("catapult"), "30");
+    const select = document.getElementById("sim-catapult") as HTMLSelectElement;
+    // No "a random building": the simulator answers one question, and a draw would make the answer differ each press.
+    // What the server would do with no target is take the first candidate, which is always the town hall.
+    expect([...select.options].map((o) => o.value)).toEqual([
+      ...BUILDING_ORDER,
+    ]);
+    expect(select.value).toBe("main");
+    // Every building has its own ceiling, so the level field has to follow the one that is chosen.
+    const level = () =>
+      document.getElementById("sim-catapult-level") as HTMLInputElement;
+    expect(level().max).toBe(String(BUILDINGS.main.maxLevel));
+    fireEvent.change(select, { target: { value: "hide" } });
+    expect(level().max).toBe(String(BUILDINGS.hide.maxLevel));
+    fireEvent.change(select, { target: { value: "wall" } });
+    // The wall keeps its own field, which carries its own ceiling.
+    expect(document.getElementById("sim-catapult-level")).toBe(null);
+    expect((document.getElementById("sim-wall") as HTMLInputElement).max).toBe(
+      "20",
+    );
+  });
+
+  it("offers no catapult target when the attacker brings no catapults", async () => {
+    await boot();
+    render(<SimulatorTab />);
+    fireInput(atk("sword"), "500");
+    // Catapults are the only thing that breaks a building, so the field would be a choice that changes nothing.
+    expect(document.getElementById("sim-catapult")).toBe(null);
+    expect(document.getElementById("sim-catapult-level")).toBe(null);
+    fireEvent.change(atk("catapult"), { target: { value: "1" } });
+    expect(document.getElementById("sim-catapult")).not.toBe(null);
+    // Taking the last one away takes the field with it, and the target it held.
+    fireEvent.change(document.getElementById("sim-catapult")!, {
+      target: { value: "barracks" },
+    });
+    fireEvent.change(atk("catapult"), { target: { value: "0" } });
+    expect(document.getElementById("sim-catapult")).toBe(null);
+    fireEvent.change(atk("catapult"), { target: { value: "1" } });
+    // The field is back, on the town hall rather than the target that went with the catapults.
+    expect(
+      (document.getElementById("sim-catapult") as HTMLSelectElement).value,
+    ).toBe("main");
+  });
+
+  it("asks for the level of the building the catapults are aimed at", async () => {
+    const { paths } = await boot({
+      "POST /api/v1/worlds/1/simulate": () => ({ status: 200, body: ANSWER }),
+    });
+    render(<SimulatorTab />);
+    fireInput(atk("sword"), "500");
+    // Without catapults there is nothing to aim, so neither the target nor its level is offered.
+    expect(document.getElementById("sim-catapult")).toBe(null);
+    expect(document.getElementById("sim-catapult-level")).toBe(null);
+    fireInput(atk("catapult"), "30");
+    // With them, a target and its level, starting on the town hall.
+    expect(document.getElementById("sim-catapult-level")).not.toBe(null);
+    expect(screen.getByText("Town Hall level:")).toBeTruthy();
+    fireEvent.change(document.getElementById("sim-catapult")!, {
+      target: { value: "barracks" },
+    });
+    // A building nothing is known about starts at the lowest a village can have, so the choice is never dropped.
+    const level = () =>
+      document.getElementById("sim-catapult-level") as HTMLInputElement;
+    expect(level().value).toBe("1");
+    expect(level().max).toBe(String(BUILDINGS.barracks.maxLevel));
+    // Named for the building it belongs to, so it is clear what the number is the level of.
+    expect(screen.getByText("Barracks level:")).toBeTruthy();
+    fireEvent.change(document.getElementById("sim-catapult")!, {
+      target: { value: "storage" },
+    });
+    expect(screen.getByText("Storehouse level:")).toBeTruthy();
+    expect(screen.queryByText("Barracks level:")).toBe(null);
+    fireEvent.change(document.getElementById("sim-catapult")!, {
+      target: { value: "barracks" },
+    });
+
+    fireInput(level(), "9");
+    screen.getByRole("button", { name: "Simulate" }).click();
+    await waitFor(() =>
+      expect(paths.some((p) => p.includes("/simulate"))).toBe(true),
+    );
+    const sent = JSON.parse(
+      String(
+        (
+          fetch as unknown as { mock: { calls: [string, RequestInit][] } }
+        ).mock.calls.find(([url]) => url.includes("/simulate"))![1].body,
+      ),
+    ) as { defender: { buildings: Record<string, number> } };
+    // The level travels with the target: a catapult can only break a building it is told the level of, so sending
+    // the name alone made the choice do nothing at all.
+    expect(sent.defender.buildings.barracks).toBe(9);
+  });
+
+  it("forgets the target and its level when cleared", async () => {
+    await boot();
+    render(<SimulatorTab />);
+    fireInput(atk("catapult"), "30");
+    fireEvent.change(document.getElementById("sim-catapult")!, {
+      target: { value: "barracks" },
+    });
+    fireInput(document.getElementById("sim-catapult-level")!, "7");
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    // Clearing empties the army, so there are no catapults left to aim and the target goes with them.
+    expect(document.getElementById("sim-catapult")).toBe(null);
+    expect(document.getElementById("sim-catapult-level")).toBe(null);
+    // Bringing catapults back starts from no target rather than the one that was cleared.
+    fireInput(atk("catapult"), "30");
+    expect(
+      (document.getElementById("sim-catapult") as HTMLSelectElement).value,
+    ).toBe("main");
+    expect(screen.getByText("Town Hall level:")).toBeTruthy();
+  });
 });
 
 describe("the army fields", () => {
+  it("keeps the icon column a real width, so the icons never vanish on a narrow screen", async () => {
+    await boot();
+    const { container } = render(<SimulatorTab />);
+    // An `auto` icon column is the one that gives way when the row runs out of space, and on a 320 px phone it
+    // collapsed to 0 px: every unit icon disappeared, leaving rows of numbers nobody could tell apart.
+    const grid = container.querySelector("div.grid")!;
+    expect(grid.className).toContain("grid-cols-[18px_auto_auto_auto_auto]");
+    const icons = [...grid.querySelectorAll("img")];
+    expect(icons.length).toBe(UNIT_IDS.length);
+  });
+
   it("shows the unit as an icon only, with the name kept for screen readers", async () => {
     await boot();
     const { container } = render(<SimulatorTab />);
@@ -599,21 +970,40 @@ describe("the simulator layout", () => {
     ).toBe(true);
   });
 
-  it("puts the wall, luck, morale and catapult target in one column beside the armies on a wide screen", async () => {
+  it("stacks the settings under the armies, with the answer beside them on a wide screen", async () => {
     await boot();
     render(<SimulatorTab />);
+    // Catapults in the army, so the target field that belongs to this block exists at all.
+    fireInput(atk("catapult"), "30");
     const armies = document
       .querySelector('input[id="sim-atk-sword"]')!
-      .closest(".panel")!;
-    const settings = document.getElementById("sim-wall")!.closest(".panel")!;
-    // Side by side: one flex row that only turns into a column below the large breakpoint.
-    const row = armies.parentElement!;
-    expect(row).toBe(settings.parentElement);
+      .closest("div[class*='p-3']")!;
+    const settings = document
+      .getElementById("sim-wall")!
+      .closest("div[class*='p-3']")!;
+    // Neither is a framed panel: they are fields on the page.
+    expect(armies.className).not.toContain("panel");
+    expect(settings.className).not.toContain("panel");
+
+    // Both sit in the one left-hand column, the settings under the armies, so the eye runs down a single column.
+    const left = armies.parentElement!;
+    expect(left).toBe(settings.parentElement);
+    expect(left.className).toContain("flex-col");
+    expect(left.className).not.toContain("lg:flex-row");
+
+    // And that column is the left half of the two-column arrangement, the answer on the right.
+    const row = left.parentElement!;
     expect(row.className).toContain("lg:flex-row");
     expect(row.className).toContain("flex-col");
-    // And every setting lives in that one panel, not scattered across a four-column strip.
+    const simulate = screen.getByRole("button", { name: "Simulate" });
+    expect(left.contains(simulate)).toBe(false);
+    expect(row.contains(simulate)).toBe(true);
+
+    // Every setting lives in that one block, not scattered across a four-column strip.
     for (const id of ["sim-morale", "sim-luck", "sim-catapult"]) {
-      expect(document.getElementById(id)!.closest(".panel")).toBe(settings);
+      expect(document.getElementById(id)!.closest("div[class*='p-3']")).toBe(
+        settings,
+      );
     }
   });
 });
@@ -624,7 +1014,7 @@ describe("the settings panel width", () => {
     render(<SimulatorTab />);
     const settings = document
       .getElementById("sim-wall")!
-      .closest(".panel") as HTMLElement;
+      .closest("div[class*='p-3']") as HTMLElement;
     // The fields inside are 64px, so the panel has no reason to grow: `w-full` alone let it run the whole width
     // when the settings drop under the armies.
     expect(settings.className).toContain("max-w-[280px]");
@@ -658,12 +1048,12 @@ describe("the result does not follow the next edit", () => {
     expect(await screen.findByText("The attacker wins")).toBeTruthy();
 
     const sentOf = (side: "atk" | "def") => {
-      // The result table's "Sent" cell for that side, read from the result block, not from the inputs.
+      // The first row of that side's army table in the result card — the troops it brought, not its losses. Both
+      // tables are inside the card, attacker first.
       const block = document.querySelector("[data-sim-result]")!;
-      const row = [...block.querySelectorAll("tbody tr")].find((tr) =>
-        tr.textContent?.startsWith(side === "atk" ? "Attacker" : "Defender"),
-      );
-      return row?.querySelectorAll("td")[1]?.textContent ?? "";
+      const table = block.querySelectorAll("table")[side === "atk" ? 0 : 1];
+      const row = table?.querySelectorAll("tbody tr")[0];
+      return (row as HTMLElement | undefined)?.innerText ?? "";
     };
     expect(sentOf("atk")).toContain("500");
 

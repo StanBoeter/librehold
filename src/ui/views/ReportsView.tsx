@@ -10,6 +10,7 @@ import { AutoFarmTag, BotTag } from "../components/BotTag";
 import {
   RESOURCES,
   UNIT_IDS,
+  HUMAN_ID,
   type Report,
   type ReportType,
   type UnitId,
@@ -22,83 +23,17 @@ import { formatNumber } from "../format";
 import { useClock } from "../useClock";
 import { humanVillageIds, isHumanVillage } from "../../engine/players";
 import { canCancelCommand } from "../../engine/commands";
+import {
+  BattleSidePanel,
+  DamageLines,
+  LootLine,
+  LuckBar,
+  ReportCard,
+  ReportSection,
+  usedUnits,
+} from "../report/battleReport";
 
 type Filter = "all" | ReportType | "unread";
-
-function UnitsTable({
-  title,
-  side,
-}: {
-  title: string;
-  side: Report["attacker"];
-}) {
-  const units = UNIT_IDS.filter((u) => (side.units[u] ?? 0) > 0);
-  const t = useT();
-  return (
-    <div>
-      <h4 className="text-[13px] font-semibold mb-1">{title}</h4>
-      {units.length === 0 ? (
-        <p className="text-muted text-[12px] italic">{t("reports.noUnits")}</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="table-game">
-            <thead>
-              <tr>
-                <th></th>
-                {units.map((u) => (
-                  <th key={u} className="text-center" title={unitName(u)}>
-                    <UnitIcon unit={u} info />
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{t("reports.count")}</td>
-                {units.map((u) => (
-                  <td key={u} className="text-center tabular-nums">
-                    {formatNumber(side.units[u] ?? 0)}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>{t("reports.losses")}</td>
-                {units.map((u) => (
-                  <td
-                    key={u}
-                    className={`text-center tabular-nums ${(side.losses[u] ?? 0) > 0 ? "text-bad font-semibold" : ""}`}
-                  >
-                    {formatNumber(side.losses[u] ?? 0)}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LuckBar({ luck }: { luck: number }) {
-  const pct = ((luck + 0.25) / 0.5) * 100;
-  return (
-    <div className="flex items-center gap-2 text-[12px]">
-      <span className="text-muted">−25 %</span>
-      <div className="relative h-3 w-48 border border-wood-border rounded-[2px] bg-gradient-to-r from-[#a33a2a] via-[#c8a54b] to-[#4c8f2f]">
-        <div
-          className="absolute top-[-3px] w-[2px] h-[16px] bg-ink"
-          style={{ left: `calc(${pct}% - 1px)` }}
-        />
-      </div>
-      <span className="text-muted">+25 %</span>
-      <strong className={luck < 0 ? "text-bad" : "text-ok"}>
-        {luck >= 0 ? "+" : ""}
-        {(luck * 100).toFixed(1)} %
-      </strong>
-    </div>
-  );
-}
 
 const fieldPlace = (r: Report) =>
   `${r.field!.x.toFixed(1)}|${r.field!.y.toFixed(1)}`;
@@ -130,6 +65,8 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const r = JSON.parse(json) as Report | null;
   const openRally = useUiStore((s) => s.openRally);
   const openSimulator = useUiStore((s) => s.openSimulator);
+  const compactUnits = useUiStore((s) => s.prefs.reportsCompactUnits);
+  const setPrefs = useUiStore((s) => s.setPrefs);
   const sendTemplate = useGameStore((s) => s.sendTemplate);
   const deleteReport = useGameStore((s) => s.deleteReport);
   const villages = useGameStore((s) => s.game!.villages);
@@ -149,6 +86,19 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
       : null;
   });
   const t = useT();
+  // The two sides' tables are wider than a phone, so each scrolls. Scrolling one scrolls the other, so the same unit
+  // type stays under the same finger: the column you are looking at is the column you are looking at on both sides.
+  const [scrollers] = useState(() => new Set<HTMLDivElement>());
+  const keepScrollInStep = (el: HTMLDivElement) => {
+    if (el.dataset.scrollWired) return;
+    el.dataset.scrollWired = "1";
+    el.addEventListener("scroll", () => {
+      for (const other of scrollers) {
+        if (other !== el && other.scrollLeft !== el.scrollLeft)
+          other.scrollLeft = el.scrollLeft;
+      }
+    });
+  };
   if (!r) return <p className="text-muted italic">{t("reports.missing")}</p>;
   const isField = r.type === "field" || r.type === "fieldScout";
   const target = villages[r.targetId];
@@ -162,7 +112,12 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   // A battle report holds both armies, the Smithy levels they fought at and the wall it happened at, so the
   // simulator can replay it. A scout report holds what the scouts saw: the troops inside, the wall and the
   // buildings a catapult could aim at. A field report is a meeting in the open with no village to defend.
-  const canSimulate = !isField && (r.type !== "scout" || !!r.scout);
+  //
+  // A blinded side is the exception. Whoever was wiped out cannot say what beat him, so his copy of the report holds
+  // no enemy army at all — replaying it would fight an empty village and answer a different battle, one the report
+  // never described. There is nothing honest to fill in, so there is no button.
+  const blinded = !!(r.attackerHidden || r.defenderHidden);
+  const canSimulate = !isField && !blinded && (r.type !== "scout" || !!r.scout);
   const simulate = () => {
     if (r.type === "scout" && r.scout) {
       openSimulator({
@@ -181,11 +136,36 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
       luck: r.luck,
       morale: r.morale,
       // A battle picks its catapult target at random, so a replay that guessed would hit another building. The
-      // report names the one that was actually hit.
+      // report names the one that was actually hit, and the level it stood at. Naming the building is not enough
+      // on its own: a catapult only aims at a building the defender has, so without its level the simulator would
+      // skip the named target and guess again.
+      defenderBuildings: r.buildingDamage
+        ? { [r.buildingDamage.building]: r.buildingDamage.from }
+        : undefined,
       catapultTarget: r.buildingDamage?.building,
     });
   };
   const haulSum = r.haul ? r.haul.wood + r.haul.clay + r.haul.iron : 0;
+  // The bar reads as won or lost for whoever is reading: a defender who watched his village fall must not see the
+  // winner's green. A report always arrives on one side, so the reader is the side whose village is in it.
+  const readAsDefender = r.target.ownerId === HUMAN_ID;
+  const lost = readAsDefender
+    ? r.outcome === "attackerWon"
+    : r.outcome === "defenderWon";
+
+  // The units this battle actually used, from the visible sides' troops and losses. A hidden side contributes
+  // nothing — otherwise its column would still hint at what the enemy brought, which is the whole point of hiding it.
+  const visibleSides = [
+    r.attackerHidden ? null : r.attacker,
+    r.defenderHidden ? null : r.defender,
+  ].filter((side): side is Report["attacker"] => side !== null);
+  const usedUnits = UNIT_IDS.filter((u) =>
+    visibleSides.some(
+      (side) => (side.units[u] ?? 0) > 0 || (side.losses[u] ?? 0) > 0,
+    ),
+  );
+  const canNarrow = usedUnits.length > 0 && usedUnits.length < UNIT_IDS.length;
+  const columns = compactUnits && canNarrow ? usedUnits : UNIT_IDS;
 
   return (
     <div className="space-y-3 text-[12px]">
@@ -238,6 +218,18 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
             {t("armyCard.turnBack")}
           </button>
         )}
+        {canNarrow && (
+          <label className="inline-flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={compactUnits}
+              onChange={(e) =>
+                setPrefs({ reportsCompactUnits: e.target.checked })
+              }
+            />
+            {t("reports.onlyUsedUnits")}
+          </label>
+        )}
         <button
           className="btn ml-auto"
           onClick={() => {
@@ -248,70 +240,149 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
           {t("reports.delete")}
         </button>
       </div>
-      <div className="panel p-2">
-        <div className="font-semibold mb-1">
-          {t("reports.result")} {resultText(r)}
+      {/* One card: red section bars inside a single frame. */}
+      <ReportCard>
+        <div
+          className={`report-bar ${lost ? "panel-header-loss" : "report-bar-ok"}`}
+        >
+          {resultText(r)}
         </div>
-        {r.field && <div>{t("reports.field.at", { at: fieldPlace(r) })}</div>}
-        {r.type !== "scout" && r.type !== "fieldScout" && !r.field?.missed && (
-          <LuckBar luck={r.luck} />
-        )}
-        {r.morale !== 1 && (
-          <div>{t("reports.morale", { n: Math.round(r.morale * 100) })}</div>
-        )}
-      </div>
-      <div className="grid md:grid-cols-2 gap-3">
-        <UnitsTable title={t("reports.attacker")} side={r.attacker} />
+        <div className="px-2 py-1.5 space-y-1">
+          {r.field ? (
+            <div>{t("reports.field.at", { at: fieldPlace(r) })}</div>
+          ) : (
+            <div>
+              {t("reports.battleAt", { at: reportVillageLabel(r.target) })}
+            </div>
+          )}
+          {r.type !== "scout" &&
+            r.type !== "fieldScout" &&
+            !r.field?.missed && <LuckBar luck={r.luck} />}
+          {r.morale !== 1 && (
+            <div>{t("reports.morale", { n: Math.round(r.morale * 100) })}</div>
+          )}
+        </div>
+        <BattleSidePanel
+          title={t("reports.attacker")}
+          units={r.attacker.units}
+          losses={r.attacker.losses}
+          placeLabel={t("reports.origin")}
+          village={reportVillageLabel(r.origin)}
+          hidden={r.attackerHidden}
+          scroller={(el) => {
+            if (el) {
+              scrollers.add(el);
+              keepScrollInStep(el);
+            }
+          }}
+          columns={columns}
+        />
         {!r.field?.missed && (
-          <UnitsTable title={t("reports.defender")} side={r.defender} />
+          <BattleSidePanel
+            title={t("reports.defender")}
+            units={r.defender.units}
+            losses={r.defender.losses}
+            placeLabel={
+              r.field ? t("reports.origin") : t("reports.destination")
+            }
+            village={reportVillageLabel(r.target)}
+            hidden={r.defenderHidden}
+            hiddenText={
+              r.type === "scout" || r.type === "fieldScout"
+                ? t("reports.scoutUnknown")
+                : undefined
+            }
+            scroller={(el) => {
+              if (el) {
+                scrollers.add(el);
+                keepScrollInStep(el);
+              }
+            }}
+            columns={columns}
+          />
         )}
-      </div>
-      {(r.wallBefore !== r.wallAfter || r.buildingDamage) && (
-        <div className="panel p-2">
-          {r.wallBefore !== r.wallAfter && (
-            <div>
-              {t("reports.wall")} {r.wallBefore} →{" "}
-              <strong>{r.wallAfter}</strong>
-            </div>
-          )}
-          {r.buildingDamage && (
-            <div>
-              {buildingName(r.buildingDamage.building)}: {r.buildingDamage.from}{" "}
-              → <strong>{r.buildingDamage.to}</strong>
-            </div>
-          )}
-        </div>
-      )}
-      {r.haul && (
-        <div className="panel p-2 flex items-center gap-3 flex-wrap">
-          <span className="font-semibold">{t("reports.loot")}</span>
-          {RESOURCES.map((res) => (
-            <span
-              key={res}
-              className="inline-flex items-center gap-0.5 tabular-nums"
-            >
-              <ResourceIcon r={res} size={14} />
-              {formatNumber(r.haul![res])}
-            </span>
-          ))}
-          <span className="text-muted">
-            {formatNumber(haulSum)} / {formatNumber(r.haulCapacity ?? 0)}{" "}
-            {r.haulCapacity && haulSum >= r.haulCapacity
-              ? t("reports.fullLoad")
-              : t("reports.partialLoot")}
-          </span>
-        </div>
-      )}
-      {!r.haul && r.noHome && (
-        <div className="panel p-2">{t("reports.noHome")}</div>
-      )}
-      {r.loyaltyBefore !== undefined && (
-        <div className="panel p-2">
-          {t("reports.loyalty")} {r.loyaltyBefore} →{" "}
-          <strong>{r.loyaltyAfter}</strong>
-          {r.conquered ? t("reports.villageTaken") : ""}
-        </div>
-      )}
+        {/* What the attack actually did: loot, loyalty, and the damage done inside the village. Each is a full-width
+            red label bar with its contents on the lines below, and wraps freely — no clipping, no sideways scrolling.
+            Wall and building damage share one bar: both are damage to what the defender built. */}
+        {(r.haul ||
+          r.noHome ||
+          r.loyaltyBefore !== undefined ||
+          r.wallBefore !== r.wallAfter ||
+          r.buildingDamage) && (
+          <div className="pt-1.5">
+            {r.haul && (
+              <div className="border-t border-wood-border/40">
+                <div className="report-bar">{t("reports.loot")}</div>
+                <div className="px-2 py-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {RESOURCES.map((res) => (
+                    <span
+                      key={res}
+                      className="inline-flex items-center gap-0.5 tabular-nums"
+                    >
+                      <ResourceIcon r={res} size={14} />
+                      {formatNumber(r.haul![res])}
+                    </span>
+                  ))}
+                  <span className="text-muted">
+                    {formatNumber(haulSum)} /{" "}
+                    {formatNumber(r.haulCapacity ?? 0)}{" "}
+                    {r.haulCapacity && haulSum >= r.haulCapacity
+                      ? t("reports.fullLoad")
+                      : t("reports.partialLoot")}
+                  </span>
+                </div>
+              </div>
+            )}
+            {!r.haul && r.noHome && (
+              <div className="border-t border-wood-border/40 px-2 py-1">
+                {t("reports.noHome")}
+              </div>
+            )}
+            {r.loyaltyBefore !== undefined && (
+              <div className="border-t border-wood-border/40">
+                <div className="report-bar">{t("reports.loyalty")}</div>
+                <div className="px-2 py-1">
+                  {t("reports.fromTo", {
+                    from: formatNumber(r.loyaltyBefore),
+                    to: formatNumber(r.loyaltyAfter ?? 0),
+                  })}
+                  {r.conquered && (
+                    <strong className="text-ok">
+                      {" "}
+                      {t("reports.villageTaken")}
+                    </strong>
+                  )}
+                </div>
+              </div>
+            )}
+            {(r.wallBefore !== r.wallAfter || r.buildingDamage) && (
+              <div className="border-t border-wood-border/40">
+                <div className="report-bar">{t("reports.buildings")}</div>
+                <div className="px-2 py-1 space-y-0.5">
+                  {r.wallBefore !== r.wallAfter && (
+                    <div>
+                      {t("reports.wall")}{" "}
+                      {t("reports.fromTo", {
+                        from: formatNumber(r.wallBefore),
+                        to: formatNumber(r.wallAfter),
+                      })}
+                    </div>
+                  )}
+                  {r.buildingDamage && (
+                    <div>
+                      {buildingName(r.buildingDamage.building)}:{" "}
+                      {t("reports.fromTo", {
+                        from: formatNumber(r.buildingDamage.from),
+                        to: formatNumber(r.buildingDamage.to),
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </ReportCard>
       {r.scout && r.type === "fieldScout" && (
         <div className="panel p-2 flex flex-wrap gap-2">
           <span className="font-semibold">{t("reports.field.scouted")}</span>
