@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { tileAt } from "../src/ui/map/tiles";
-import { emptyBuildings, type GameState } from "../src/engine/types";
+import type { GameState } from "../src/engine/types";
 import { useGameStore } from "../src/state/gameStore";
 import { useUiStore } from "../src/state/uiStore";
 import {
@@ -118,39 +118,6 @@ describe("the card shown on hovering a village", () => {
     });
     hoverOn(w.barb);
     expect(screen.queryByRole("button", { name: "Wesprzyj" })).toBeNull();
-  });
-
-  it("offers Simulate only once the village has been scouted, and hands over what the scouts saw", () => {
-    hoverOn(w.barb);
-    // Nothing is known about a village nobody scouted, so there is nothing to simulate.
-    expect(screen.queryByRole("button", { name: "Symuluj" })).toBeNull();
-
-    useGameStore.setState({
-      intel: {
-        [tileAt(w.g, w.barb.x, w.barb.y).id]: {
-          intel: {
-            at: w.g.now,
-            units: { spear: 40 },
-            wall: 6,
-            loyalty: 90,
-            scouted: {
-              at: w.g.now,
-              resources: { wood: 1, clay: 2, iron: 3 },
-              buildings: { ...emptyBuildings(), main: 5, wall: 6 },
-            },
-          },
-        },
-      },
-    });
-    hoverOn(w.barb);
-    fireEvent.click(screen.getByRole("button", { name: "Symuluj" }));
-
-    const handed = useUiStore.getState().simPrefill!;
-    expect(handed.defender).toEqual({ spear: 40 });
-    expect(handed.wall).toBe(6);
-    // The buildings are what a catapult aims at; without them the server guesses a town hall.
-    expect(handed.defenderBuildings).toMatchObject({ main: 5, wall: 6 });
-    expect(useUiStore.getState().view).toBe("rally");
   });
 
   it("a barbarian village offers template A, disabled until template A is defined", () => {

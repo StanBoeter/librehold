@@ -168,7 +168,6 @@ export function MapHoverCard({
   }, [hover, info]);
   const activeId = useGameStore((s) => s.game?.activeVillageId ?? "");
   const openRally = useUiStore((s) => s.openRally);
-  const simulate = useUiStore((s) => s.openSimulator);
   const setView = useUiStore((s) => s.setView);
   const setActive = useGameStore((s) => s.setActiveVillage);
   const tplA = useGameStore(
@@ -330,21 +329,6 @@ export function MapHoverCard({
       () =>
         rally({ x: info.x, y: info.y, mode: "attack", units: { scout: 1 } }),
     ]);
-    // The simulator asks what would happen if these troops attacked: it needs the defenders the player knows of
-    // and the buildings a catapult could break, both of which come from a successful scouting.
-    if (info.intel) {
-      actions.push([
-        t("mapCard.simulate"),
-        () => {
-          close();
-          simulate({
-            defender: info.intel!.units,
-            defenderBuildings: info.intel!.buildings ?? undefined,
-            wall: info.intel!.wall,
-          });
-        },
-      ]);
-    }
     actions.push([
       t("map.templateA"),
       () => {
