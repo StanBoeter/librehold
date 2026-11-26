@@ -38,9 +38,6 @@ func checkSimInput(in game.SimInput) error {
 		if side.Wall < 0 || side.Wall > maxSimWall {
 			return &ErrValidation{Field: "wall", Code: "invalid"}
 		}
-		if side.HideLevel < 0 || side.HideLevel > maxSimBuildingLevel {
-			return &ErrValidation{Field: "hideLevel", Code: "invalid"}
-		}
 		for _, lvl := range side.Buildings {
 			if lvl < 0 || lvl > maxSimBuildingLevel {
 				return &ErrValidation{Field: "buildings", Code: "invalid"}

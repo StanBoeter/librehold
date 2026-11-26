@@ -491,6 +491,7 @@
     "fields": "{n} fields",
     "attack": "Attack",
     "scout": "Scout",
+    "simulate": "Simulate",
     "actions": "Actions"
   },
   "bonus": {
@@ -1267,7 +1268,6 @@
     "level": "Level",
     "troops": "Troops",
     "wall": "Wall level",
-    "hide": "Hideout level",
     "luck": "Luck ({range}% either way)",
     "morale": "Morale",
     "catapultTarget": "Catapult target:",

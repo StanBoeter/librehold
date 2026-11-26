@@ -118,6 +118,38 @@ func TestSimulateBattleHonoursTheBuildingsItIsGiven(t *testing.T) {
 	}
 }
 
+// A village the player scouted has buildings the default guess does not: a catapult aimed at the barracks must break
+// the barracks, at the level the scouts saw. Without this the answer is always about a guessed town hall.
+func TestSimulateBattleAimsAtTheBuildingsTheVillageHas(t *testing.T) {
+	in := simInput(UnitCounts{USword: 20000, UCatapult: 2000}, UnitCounts{USpear: 10}, 0, 0)
+	in.Defender.Buildings = Buildings{}
+	in.Defender.Buildings[BMain] = 7
+	in.Defender.Buildings[BBarracks] = 9
+	target := BBarracks
+	in.CatapultTarget = &target
+	got := SimulateBattle(in, "normal")
+	if got.BuildingDamage == nil {
+		t.Fatal("a scouted barracks was not hit")
+	}
+	if got.BuildingDamage.Building != BBarracks {
+		t.Fatalf("aimed at %v, want the barracks that was asked for", got.BuildingDamage.Building)
+	}
+	if got.BuildingDamage.From != 9 {
+		t.Fatalf("fought over a level %d barracks, want the level 9 the scouts saw", got.BuildingDamage.From)
+	}
+}
+
+// The simulator answers the fight, not the loot: a side carries no resources, so there is never a haul to show.
+func TestSimulateBattleHasNoHaul(t *testing.T) {
+	got := SimulateBattle(simInput(UnitCounts{USword: 500}, UnitCounts{USpear: 10}, 0, 0), "normal")
+	if got.Outcome != "attackerWon" {
+		t.Fatalf("the raid did not go through: %s", got.Outcome)
+	}
+	if SumResources(got.Haul) != 0 || got.HaulCapacity != 0 {
+		t.Fatalf("a simulated battle carried loot: %+v, capacity %v", got.Haul, got.HaulCapacity)
+	}
+}
+
 // Catapults must not shuffle between runs: the player compares two armies and expects the same target each time.
 func TestSimulateBattleIsRepeatable(t *testing.T) {
 	in := simInput(UnitCounts{USword: 50, UCatapult: 40}, UnitCounts{USpear: 5}, 0, 0)

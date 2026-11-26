@@ -100,6 +100,8 @@ export interface ForeignVillageInfo {
     lastHaul: number | null;
     lastHaulCapacity: number | null;
     lastLosses: number | null;
+    /** The buildings the last successful scouting saw, so the simulator can aim catapults at them. */
+    buildings: Partial<Record<BuildingId, number>> | null;
   } | null;
   lastAttackAt: number | null;
   reports: ReportBrief[];
@@ -277,6 +279,7 @@ export function villageInfo(
             : null,
           lastHaulCapacity: seen.lastHaulCapacity ?? null,
           lastLosses: seen.lastLosses ?? null,
+          buildings: seen.scouted ? { ...seen.scouted.buildings } : null,
         }
       : null,
     lastAttackAt: known?.lastFarmedAt ?? v?.lastFarmedAt ?? null,

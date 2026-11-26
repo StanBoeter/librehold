@@ -440,6 +440,15 @@ export interface VillageIntel {
   /** How many units we lost in the last attack. */
   lastLosses?: number;
   lastOutcome?: "attackerWon" | "defenderWon";
+  /** What the last successful scouting saw: the buildings and resources at that moment. A later raid keeps it. */
+  scouted?: Scouted;
+}
+
+/** A village as the scouts saw it: its resources and buildings at one moment. */
+export interface Scouted {
+  at: number;
+  resources: ResourceSet;
+  buildings: Record<BuildingId, number>;
 }
 
 /** Multipliers for one side of the world (human or bots) — 1 = unchanged. */

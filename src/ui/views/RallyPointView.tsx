@@ -724,7 +724,9 @@ function TemplatesTab() {
 export function RallyPointView() {
   const prefill = useUiStore((s) => s.rallyPrefill);
   const simPrefill = useUiStore((s) => s.simPrefill);
-  const [tab, setTab] = useState<Tab>(prefill ? "send" : simPrefill ? "simulate" : "send");
+  const [tab, setTab] = useState<Tab>(
+    prefill ? "send" : simPrefill ? "simulate" : "send",
+  );
   const commandCount = useGameStore((s) => playerCommands(s.game!).length);
   const activeId = useGameStore((s) => selectActiveVillage(s).id);
   useEffect(() => {

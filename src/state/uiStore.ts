@@ -183,7 +183,8 @@ export const useUiStore = create<UiStore>()((set, get) => ({
     return p;
   },
   simPrefill: null,
-  openSimulator: (simPrefill) => set({ simPrefill: simPrefill ?? null, view: 'rally' }),
+  openSimulator: (simPrefill) =>
+    set({ simPrefill: simPrefill ?? null, view: "rally" }),
   consumeSimPrefill: () => {
     const p = get().simPrefill;
     if (p) set({ simPrefill: null });

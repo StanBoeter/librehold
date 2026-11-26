@@ -41,12 +41,21 @@ checks the fonts.
 ## Map — village menu and sizes
 
 - Clicking a village on the map opens a menu next to the tile (Esc closes it). Own village: resources, population, construction, troops, incoming attacks, Village/Switch/Support/Reports/More… buttons, plus collapsed Quick build and Quick recruit sections. Quick build queues the next level of an available building; Quick recruit orders units from recruitment buildings already built in that village. Both use the same client-side checks and server orders as the village screens. Foreign village: distance and march times, the latest intel (only what the player got by scouting/attacking), the last attack, the threat from that village, our commands on the way, the 3 latest reports (a click opens them) and "all →" (Reports filtered by the village), Attack/Support/Scout/Template A/More… buttons.
-- Hovering a village shows a card describing it (`src/ui/map/MapHoverCard.tsx`): name, coordinates and continent (K + hundreds of y + hundreds of x), points, the player with their ranking points, bonus, the last attack with loot, troops from scouting, wall, distance; for an own village resources, Farmstead, troops and incoming attacks. It disappears while dragging the map; on touch there is none (a tap opens the menu).
+- Hovering a village shows a card describing it (`src/ui/map/MapHoverCard.tsx`): name, coordinates and continent (K + hundreds of y + hundreds of x), points, the player with their ranking points, bonus, the last attack with loot, troops from scouting, wall, distance; for an own village resources, Farmstead, troops and incoming attacks. It disappears while dragging the map; on touch there is none (a tap opens the menu). Once the player has scouted the village the card also has a **Simulate** button, which hands the troops, wall and buildings the scouts saw to the battle simulator.
 - The village icon depends on points — thresholds in `server/internal/game/data_world.go` (`MapConfig.VillageSizePoints`): < 300 hut, 300 fenced settlement, 1,000 palisade, 3,000 stone wall, 9,000 stronghold with towers, 11,000 castle. Art: `src/ui/map/PixelVillage.tsx`.
 - Menu data: `src/ui/map/villageInfo.ts` (a pure function, tested in `tests/map.test.ts`).
 - "Show farming" (on by default) takes the player's farm raids off the map, the armies and the command dots alike:
   raids sent from a farm template or by the auto-farm, and their way home. The server keeps the choice per player and
   world (`hide-farm-on-map`), and only the sender's state marks a command as a farm raid (`farm`).
+
+## Rally Point — the battle simulator
+
+- A tab of the Rally Point (`src/ui/views/SimulatorView.tsx`), next to Send troops, Commands and Templates. Two armies side by side, one row per unit: its icon, the attacker's troops and Smithy level, then the defender's. A noble has no level cell (it is bought, not researched), but the column stays open.
+- Beside the armies: the defender's wall, morale, the luck slider (± `COMBAT_BALANCE.luckRange`, shown as a percentage) and the catapult target. There is no hideout field and no loot: the simulator answers the fight, not the haul, so the server zeroes the haul it would otherwise work out.
+- The catapult target only means something when the player knows the defender's buildings. Those come from a prefill (a scout report or the map card); without one the server assumes an ordinary village — a town hall at `SimDefaultMainLevel` and the wall that was typed — and a catapult always hits the town hall.
+- The answer comes from `game.SimulateBattle`, which runs the same `ResolveBattle` a real attack does, so the numbers cannot drift from a real fight. Losses are also valued at unit cost, so two runs can be compared. A run is a snapshot: editing the fields afterwards does not rewrite the answer already on screen.
+- Prefills: `useUiStore.openSimulator(prefill)` stores a one-off `SimPrefill` and switches to the Rally Point, which opens on the Simulator tab and consumes it. A battle report fills in both armies, both sides' Smithy levels, the wall and the luck it was fought at. A scout report or a scouted village on the map fills in the defender, the wall and the buildings. A field report has no button: there is no village to defend.
+- The server keeps no state: `POST /api/v1/worlds/{wid}/simulate` validates the input (`server/internal/app/simulator.go`) and answers inside a read-only view of the world, so it changes nothing.
 
 ## Phone (mobile layout)
 

@@ -153,6 +153,10 @@
           "turnBack": {
             "title": "Odwrót",
             "body": "Zwykle armię można odwołać tylko w ciągu pierwszych {cancelWindowMin} min marszu. Armia trafiona w polu to co innego: może zawrócić w każdej chwili, aż do dotarcia na miejsce. Jeśli twój atak zostanie złapany w drodze i straci połowę siły, nie musisz rzucać reszty na broniącą się wioskę. Otwórz kartę armii i kliknij Zawróć.\n\nDruga strona też to wie. Kiedy uderzysz w armię w drodze, licz się z tym, że jej resztki zawrócą, zamiast iść na obronę, która jest już dla nich za silna.\n\nDroga do domu trwa tyle, ile dotychczasowy marsz. Im później wojsko zawróci, tym dłużej nie będzie go w domu, a pusta wioska to łatwy cel."
+          },
+          "simulator": {
+            "title": "Najpierw sprawdź bitwę",
+            "body": "Symulator to zakładka w Punkcie Zbornym. Wpisujesz wojska obu stron, mur obrońcy i poziomy Kuźni, na których walczą obie wioski, a on mówi, kto by wygrał, ile każda strona by straciła i ile kosztuje odtworzenie tych strat. Nic nie jest wysyłane i nic się w świecie nie zmienia.\n\nWynik pochodzi z tego samego kodu bitwy, który wykonuje prawdziwy atak, więc bitwa wygrana w symulatorze to bitwa, którą wygrasz — poza szczęściem. Ustaw szczęście na środek, żeby zobaczyć uczciwy przypadek, a potem spróbuj obu krańców zakresu, żeby zobaczyć, co zrobi z wynikiem dobry albo zły rzut.\n\nPo zwiadzie wiesz, co czeka w wiosce: otwórz wioskę na mapie albo raport ze zwiadu i naciśnij Symuluj, żeby wstawić obrońcę z tego, co widzieli zwiadowcy — razem z murem i budynkami. Raport z bitwy ma ten sam przycisk, więc możesz powtórzyć bitwę, która już się odbyła, i zobaczyć, co by było z inną armią."
           }
         },
         "shots": {

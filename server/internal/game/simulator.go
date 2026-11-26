@@ -17,7 +17,8 @@ type SimInput struct {
 }
 
 // SimSide is one army plus the parts of its village that matter. A side is the attacker or the defender; the
-// defender's wall, hideout and resources are ignored when the side is the attacker.
+// defender's wall and buildings are ignored when the side is the attacker. The simulator asks about the fight, not
+// the loot, so a side carries no resources: the answer has no haul.
 type SimSide struct {
 	Units    UnitCounts `json:"units"`
 	Research UnitCounts `json:"research"`
@@ -25,9 +26,6 @@ type SimSide struct {
 	Wall int `json:"wall"`
 	// Buildings of the defender's village, for what catapults may aim at. Empty means "a wall and a town hall".
 	Buildings Buildings `json:"buildings,omitempty"`
-	Resources Resources `json:"resources"`
-	// HideLevel is how much the defender's hideout saves from the haul.
-	HideLevel int `json:"hideLevel"`
 }
 
 // SimResult is the battle plus the two numbers the player is really asking about: what each side loses.
@@ -43,7 +41,7 @@ type SimResult struct {
 const SimDefaultMainLevel = 5
 
 // MaxSimUnits is the largest army a simulation takes. Far beyond any real one, it keeps the loss distribution and
-// the haul arithmetic well inside what an int and a float64 hold.
+// the cost arithmetic well inside what an int and a float64 hold.
 const MaxSimUnits = 10_000_000
 
 // ClampLuck holds luck to the range a real battle draws from, so a typo cannot show a fight that cannot happen.
@@ -72,8 +70,7 @@ func SimulateBattle(in SimInput, lossMode BattleLossMode) SimResult {
 		Attacker: BattleSide{Units: in.Attacker.Units, Research: in.Attacker.Research},
 		Defender: BattleDefender{
 			BattleSide: BattleSide{Units: defender.Units, Research: defender.Research},
-			Wall:       defender.Wall, Buildings: defender.Buildings, Resources: defender.Resources,
-			HideLevel: defender.HideLevel,
+			Wall:       defender.Wall, Buildings: defender.Buildings,
 		},
 		Luck: ClampLuck(in.Luck), Morale: in.Morale, CatapultTarget: in.CatapultTarget,
 		// Catapults pick their target at random in a real battle. A simulator that shuffles would show a different
@@ -81,6 +78,9 @@ func SimulateBattle(in SimInput, lossMode BattleLossMode) SimResult {
 		Rng:      func() float64 { return 0 },
 		LossMode: lossMode,
 	})
+	// The simulator answers the fight, not the loot: a side carries no resources, so any haul the shared battle code
+	// works out would be a number about a village the player never described.
+	res.Haul, res.HaulCapacity = Resources{}, 0
 	return SimResult{BattleResult: res, AttackerCost: costOf(res.AttackerLosses), DefenderCost: costOf(res.DefenderLosses)}
 }
 

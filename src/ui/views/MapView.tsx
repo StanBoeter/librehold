@@ -166,6 +166,7 @@ export function VillagePopup({
   const setActive = useGameStore((s) => s.setActiveVillage);
   const sendTemplate = useGameStore((s) => s.sendTemplate);
   const openRally = useUiStore((s) => s.openRally);
+  const openSimulator = useUiStore((s) => s.openSimulator);
   const setView = useUiStore((s) => s.setView);
   const openReport = useUiStore((s) => s.openReport);
   const openReportsFor = useUiStore((s) => s.openReportsFor);
@@ -489,6 +490,22 @@ export function VillagePopup({
             >
               {t("map.templateA")}
             </button>
+            {/* Only what the player knows can be simulated: the troops, wall and buildings come from a scouting. */}
+            {info.intel && (
+              <button
+                className="btn"
+                onClick={() => {
+                  onClose();
+                  openSimulator({
+                    defender: info.intel!.units,
+                    defenderBuildings: info.intel!.buildings ?? undefined,
+                    wall: info.intel!.wall,
+                  });
+                }}
+              >
+                {t("mapCard.simulate")}
+              </button>
+            )}
             <button className="btn" onClick={onDetails}>
               {t("map.more")}
             </button>
